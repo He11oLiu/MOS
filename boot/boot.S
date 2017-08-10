@@ -39,14 +39,14 @@ seta20.2:
   jnz     seta20.2
 
   movb    $0xdf,%al               # 0xdf -> port 0x60
-  outb    %al,$0x60
+  outb    %al,$0x60               # 0xdf = 11011111
 
   # Switch from real to protected mode, using a bootstrap GDT
   # and segment translation that makes virtual addresses 
   # identical to their physical addresses, so that the 
   # effective memory map does not change during the switch.
   lgdt    gdtdesc
-  movl    %cr0, %eax
+  movl    %cr0, %eax              # enable protected mode
   orl     $CR0_PE_ON, %eax
   movl    %eax, %cr0
   
@@ -75,8 +75,8 @@ spin:
 # Bootstrap GDT
 .p2align 2                                # force 4 byte alignment
 gdt:
-  SEG_NULL				# null seg
-  SEG(STA_X|STA_R, 0x0, 0xffffffff)	# code seg
+  SEG_NULL				                    # null seg
+  SEG(STA_X|STA_R, 0x0, 0xffffffff)	  # code seg
   SEG(STA_W, 0x0, 0xffffffff)	        # data seg
 
 gdtdesc:

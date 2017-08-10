@@ -47,6 +47,8 @@ delay(void)
 
 static bool serial_exists;
 
+// poll input from serial
+// will be used in cons_intr and fill the buff
 static int
 serial_proc_data(void)
 {
@@ -167,16 +169,17 @@ cga_putc(int c)
 		c |= 0x0700;
 
 	switch (c & 0xff) {
-	case '\b':
+	case '\b': /* backspace */
 		if (crt_pos > 0) {
 			crt_pos--;
+			// delete the character
 			crt_buf[crt_pos] = (c & ~0xff) | ' ';
 		}
 		break;
-	case '\n':
+	case '\n':	/* new line */
 		crt_pos += CRT_COLS;
 		/* fallthru */
-	case '\r':
+	case '\r': /* return to the first character of cur line */
 		crt_pos -= (crt_pos % CRT_COLS);
 		break;
 	case '\t':
@@ -191,11 +194,14 @@ cga_putc(int c)
 		break;
 	}
 
-	// What is the purpose of this?
+	// When current pos reach the bottom of the creen
+	// case '\n' : crt_pos -= CRT_COLS will work
+	// case other: crt_pos must equal to CRT_SIZE 
 	if (crt_pos >= CRT_SIZE) {
 		int i;
-
+		// Move all the screen upward (a line)
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
+		// Clear the bottom line
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
 			crt_buf[i] = 0x0700 | ' ';
 		crt_pos -= CRT_COLS;
@@ -305,7 +311,7 @@ static uint8_t *charcode[4] = {
 	normalmap,
 	shiftmap,
 	ctlmap,
-	ctlmap
+	ctlmap	/* actually shift + ctl */
 };
 
 /*
@@ -330,22 +336,26 @@ kbd_proc_data(void)
 
 	if (data == 0xE0) {
 		// E0 escape character
+		// which means there will be another character wait to be accept
 		shift |= E0ESC;
 		return 0;
 	} else if (data & 0x80) {
 		// Key released
+		// shift should be unmarked
 		data = (shift & E0ESC ? data : data & 0x7F);
 		shift &= ~(shiftcode[data] | E0ESC);
 		return 0;
 	} else if (shift & E0ESC) {
 		// Last character was an E0 escape; or with 0x80
+		// the second character
 		data |= 0x80;
 		shift &= ~E0ESC;
 	}
 
 	shift |= shiftcode[data];
+	// type function keys will turn on/off when off/on
 	shift ^= togglecode[data];
-
+	// can add CTL+ALT table
 	c = charcode[shift & (CTL | SHIFT)][data];
 	if (shift & CAPSLOCK) {
 		if ('a' <= c && c <= 'z')
@@ -384,6 +394,10 @@ kbd_init(void)
 
 #define CONSBUFSIZE 512
 
+// buf[.................]
+//      ^			^
+//     rpos       wpos
+
 static struct {
 	uint8_t buf[CONSBUFSIZE];
 	uint32_t rpos;
@@ -421,6 +435,7 @@ cons_getc(void)
 	// grab the next character from the input buffer.
 	if (cons.rpos != cons.wpos) {
 		c = cons.buf[cons.rpos++];
+		// round
 		if (cons.rpos == CONSBUFSIZE)
 			cons.rpos = 0;
 		return c;
@@ -464,7 +479,7 @@ getchar(void)
 	int c;
 
 	while ((c = cons_getc()) == 0)
-		/* do nothing */;
+		/* do nothing waiting for input */;
 	return c;
 }
 

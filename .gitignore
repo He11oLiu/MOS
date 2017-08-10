@@ -15,3 +15,5 @@
 /lab?/
 /sol?/
 /myapi.key
+**/.DS_Store
+settings.json
