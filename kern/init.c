@@ -3,7 +3,6 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
-
 #include <kern/monitor.h>
 #include <kern/console.h>
 
@@ -34,6 +33,9 @@ i386_init(void)
 	cons_init();
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
+	// cprintf("123 in hex is %#x\n",123);
+	// cprintf("123 %%5  [%5d]\r\n",123);
+	// cprintf("123 %%-5 [%-5d]\r\n",123);
 
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);
@@ -51,7 +53,7 @@ i386_init(void)
 const char *panicstr;
 
 /*
- * Panic is called on unresolvable fatal errors.
+ * Panic is called on= unresolvable fatal errors.
  * It prints "panic: mesg", and then enters the kernel monitor.
  */
 void
