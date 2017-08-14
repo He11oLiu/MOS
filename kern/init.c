@@ -3,7 +3,6 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
-
 #include <kern/monitor.h>
 #include <kern/console.h>
 #include <kern/pmap.h>
@@ -27,6 +26,9 @@ i386_init(void)
 	cons_init();
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
+	// cprintf("123 in hex is %#x\n",123);
+	// cprintf("123 %%5  [%5d]\r\n",123);
+	// cprintf("123 %%-5 [%-5d]\r\n",123);
 
 	// Lab 2 memory management initialization functions
 	mem_init();
@@ -55,7 +57,7 @@ i386_init(void)
 const char *panicstr;
 
 /*
- * Panic is called on unresolvable fatal errors.
+ * Panic is called on= unresolvable fatal errors.
  * It prints "panic: mesg", and then enters the kernel monitor.
  */
 void

@@ -65,6 +65,15 @@ entry:
 	# Now paging is enabled, but we're still running at a low EIP
 	# (why is this okay?).  Jump up above KERNBASE before entering
 	# C code.
+	# At first: As for entry, we have used RELOC(entry) which will
+	# minus KERNBASE. So the value will be 0x100000+OFFSET. (As we
+	# have defined . = 0xF0100000 SO $entry = 0xF0100000 + OFFSET)
+	# And ".text:AT(0x100000)" gives the load address of this section.
+	# So we can run exactly the code above 'relocated'.
+	# Second  : As for jmp *%eax. %eax = 0xF0100000+OFFSET and scince
+	# we have mapped 0xF0000000~0xF0400000 to 0x0~0x400000, the virtual
+	# address 0xF0100000+OFFSET point to physical address 0x100000+OFFSET,
+	# which are exactly where our codes lays.
 	mov	$relocated, %eax
 	jmp	*%eax
 relocated:

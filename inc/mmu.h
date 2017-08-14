@@ -46,7 +46,7 @@
 #define NPTENTRIES	1024		// page table entries per page table
 
 #define PGSIZE		4096		// bytes mapped by a page
-#define PGSHIFT		12		// log2(PGSIZE)
+#define PGSHIFT		12		    // log2(PGSIZE)
 
 #define PTSIZE		(PGSIZE*NPTENTRIES) // bytes mapped by a page directory entry
 #define PTSHIFT		22		// log2(PTSIZE)

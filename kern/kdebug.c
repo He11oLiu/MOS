@@ -132,6 +132,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		stabstr = __STABSTR_BEGIN__;
 		stabstr_end = __STABSTR_END__;
 	} else {
+<<<<<<< HEAD
 		// The user-application linker script, user/user.ld,
 		// puts information about the application's stabs (equivalent
 		// to __STAB_BEGIN__, __STAB_END__, __STABSTR_BEGIN__, and
@@ -150,6 +151,10 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 
 		// Make sure the STABS and string table memory is valid.
 		// LAB 3: Your code here.
+=======
+		// Can't search for user-level addresses yet!
+  	    panic("User address");
+>>>>>>> lab2
 	}
 
 	// String table validity checks
@@ -204,7 +209,11 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
-
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	if (lline <= rline)
+		info->eip_line = stabs[lline].n_desc;
+	else
+		return -1;
 
 	// Search backwards from the line number for the relevant filename
 	// stab.
