@@ -295,6 +295,33 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 最后载入了`cr3`，将`entry`中设置的简单页表换为现在的完整页表。
 
+### brief summary
+
+- 对于此`pd`的映射，在最开始就完成了
+
+  ```c
+  kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
+  ```
+
+- 对于所有的页的信息表的映射到`UPAGES`
+
+  ```c
+  boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U | PTE_P);
+  ```
+
+
+- 对于所有的内核栈映射到`KSTACKTOP - KSTKSIZE`
+
+  ```c
+  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+  ```
+
+- 对于其余的**在之前`entry`的时候建立的简易页表时利用的(PA为0～4MB)的内存，同`entry`一样，映射到`kernbase`之上，这样之后即使启用了新的页表，也可以平滑过渡，且以后依然用`KADDR`转换`pa`到`kva`**
+
+  ```c
+  boot_map_region(kern_pgdir, KERNBASE, (unsigned int)-KERNBASE, 0, PTE_W | PTE_P);
+  ```
+
 ###Question
 
 1. What entries (rows) in the page directory have been filled in at this point? 
