@@ -44,7 +44,7 @@ boot_alloc(uint32_t n)
 }
 ```
 
-###初始化页信息表
+### 初始化页信息表
 
 ```c
 void page_init(void)
@@ -84,7 +84,7 @@ void page_init(void)
 
 其中要注意第四部分，为了判断是否已经被使用了，可以利用上面写的`boot_init`，来查找第一个没有被使用的页。然后在根据是否被使用来初始化页表。
 
-###分配页
+### 分配页
 
 分配页需要通过`page_free_list`获取空闲页表，并分配第一个页给当前需要获取的函数。更新空闲页表的入口。
 
@@ -104,7 +104,7 @@ page_alloc(int alloc_flags)
 }
 ```
 
-###释放页
+### 释放页
 
 释放页则直接将这个页加入到空闲页表。
 
@@ -295,7 +295,7 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 最后载入了`cr3`，将`entry`中设置的简单页表换为现在的完整页表。
 
-### brief summary
+###  brief summary
 
 - 对于此`pd`的映射，在最开始就完成了
 
@@ -322,7 +322,7 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
   boot_map_region(kern_pgdir, KERNBASE, (unsigned int)-KERNBASE, 0, PTE_W | PTE_P);
   ```
 
-###Question
+### Question
 
 1. What entries (rows) in the page directory have been filled in at this point? 
 
