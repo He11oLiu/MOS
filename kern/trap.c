@@ -58,24 +58,13 @@ static const char *trapname(int trapno)
 void trap_init(void)
 {
 	extern struct Segdesc gdt[];
-	SETGATE(idt[T_DIVIDE], 0, GD_KT, ENTRY_DIVIDE, 0);
-	SETGATE(idt[T_DEBUG], 0, GD_KT, ENTRY_DEBUG, 0);
-	SETGATE(idt[T_NMI], 0, GD_KT, ENTRY_NMI, 0);
-	SETGATE(idt[T_BRKPT], 0, GD_KT, ENTRY_BRKPT, 3);
-	SETGATE(idt[T_OFLOW], 0, GD_KT, ENTRY_OFLOW, 3);
-	SETGATE(idt[T_BOUND], 0, GD_KT, ENTRY_BOUND, 3);
-	SETGATE(idt[T_ILLOP], 0, GD_KT, ENTRY_ILLOP, 0);
-	SETGATE(idt[T_DEVICE], 0, GD_KT, ENTRY_DEVICE, 0);
-	SETGATE(idt[T_DBLFLT], 0, GD_KT, ENTRY_DBLFLT, 0);
-	SETGATE(idt[T_TSS], 0, GD_KT, ENTRY_TSS, 0);
-	SETGATE(idt[T_SEGNP], 0, GD_KT, ENTRY_SEGNP, 0);
-	SETGATE(idt[T_STACK], 0, GD_KT, ENTRY_STACK, 0);
-	SETGATE(idt[T_GPFLT], 0, GD_KT, ENTRY_GPFLT, 0);
-	SETGATE(idt[T_PGFLT], 0, GD_KT, ENTRY_PGFLT, 0);
-	SETGATE(idt[T_FPERR], 0, GD_KT, ENTRY_FPERR, 0);
-	SETGATE(idt[T_ALIGN], 0, GD_KT, ENTRY_ALIGN, 0);
-	SETGATE(idt[T_MCHK], 0, GD_KT, ENTRY_MCHK, 0);
-	SETGATE(idt[T_SIMDERR], 0, GD_KT, ENTRY_SIMDERR, 0);
+	int i;
+	int dpl = 0;
+	for (i = 0; i < 17; i++)
+	{
+		dpl = (i == 3 || i == 4 || i == 5 || i == 128) ? 3 : 0;
+		SETGATE(idt[i], 0, GD_KT, traphandlers[i], dpl);
+	}
 	// Per-CPU setup
 	trap_init_percpu();
 }

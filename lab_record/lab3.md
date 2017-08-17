@@ -431,7 +431,20 @@ extern void ENTRY_BRKPT();      /* breakpoint */
 
 最后在`trap_init`中设置`IDT`
 
-`T_OFLOW,T_BRKPT,T_BOUND`是许软件中断 `dpl`需要设置为`3`
+> Descriptor Privilege Level: Gate call protection. Specifies which privilege Level the calling Descriptor minimum should have. So hardware and CPU interrupts can be protected from being called out of userspace.
+
+> `INT`指令允许用户模式下的程序发送`Interrupt signal`（中断向量从0到255）。因此初始化IDT必须非常小心。要防止用户模式下的程序通过INT指令访问关键的事件处理程序。设置`Interrupt gate Descriptor`和`Trap gate Descriptor`中DPL的值为0后，当程序尝试发送某个`Interrupt signal`时，CPU会检查CPL和DPL的值，假如CPL的值比DPL的值高（也就是CPL的优先级比DPL的低），这会触发`“General protection” exception`。
+>
+> 当然在某些情况，用户模式下的程序必须能触发一个可编程的`exception`。因此，必须设置对应的`Interrupt gate Descriptor`和`Trap gate Descriptor`中DPL的值为3。
+>
+> Intel提供三种`interrupt descriptors：Task、Interrupt、Trap Gate Descriptors`。因为Linux没有使用到`Task GateDescriptors`。所以IDT中断向量表只包含`Interrupt Gate Descriptors`和`Trap Gate Descriptors`。Linux定义了如下概念，术语跟Intel稍微有些不同。
+
+| Interrupt gate | 一个Intel Interrupt gate（这个gate的DPL的值是0）不能被用户模式下的程序访问。Linux Interrupt gate指向的事件处理程序(Linux interrupt handlers)只能在内核模式下运行。 |
+| -------------- | ---------------------------------------- |
+| System gate    | 一个Inter trap gate（这个gate的DPL的值是3）可以被用户模式下的程序访问。四个Linux exception handlers对应着中断向量3、4、5、128(system gate)。所以4个汇编指令int 3、 into、bound、 int $0x80可以在用户模式下执行。 |
+| Trap gate      | 一个Intel trap gate(这个gate的DPL的值是0)不能被用户模式下的程序访问。大部分的Linux exceptionhandlers对应着Trap gate。 |
+
+`T_OFLOW,T_BRKPT,T_BOUND` 允许软件中断 `dpl`需要设置为`3`
 
 ```c
 	SETGATE(idt[T_DIVIDE], 0, GD_KT, ENTRY_DIVIDE, 0);
@@ -452,5 +465,71 @@ extern void ENTRY_BRKPT();      /* breakpoint */
 	SETGATE(idt[T_ALIGN], 0, GD_KT, ENTRY_ALIGN, 0);
 	SETGATE(idt[T_MCHK], 0, GD_KT, ENTRY_MCHK, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, ENTRY_SIMDERR, 0);
+```
+
+
+
+> Challenge! You probably have a lot of very similar code right now, between the lists of `TRAPHANDLER` in `trapentry.S` and their installations in `trap.c`. Clean this up. Change the macros in `trapentry.S` to automatically generate a table for `trap.c` to use. Note that you can switch between laying down code and data in the assembler by using the directives `.text` and `.data`.
+
+修改`TRAPHANDLER`与`TRAPHANDLER_NOEC`
+
+```assembly
+#define TRAPHANDLER(name, num)									\
+	.text;														\
+	.globl name;		/* define global symbol for 'name' */	\
+	.type name, @function;	/* symbol type is function */		\
+	.align 2;		/* align function definition */				\
+	name:			/* function starts here */					\
+	pushl $(num);												\
+	jmp _alltraps;												\
+	.data;														\
+	.long name;
+
+#define TRAPHANDLER_NOEC(name, num)								\
+	.text;														\
+	.globl name;												\
+	.type name, @function;										\
+	.align 2;													\
+	name:														\
+	pushl $0;													\
+	pushl $(num);												\
+	jmp _alltraps;												\
+	.data;														\
+	.long name;
+```
+
+并将所有的`handler`映射到`traphandlers`的`table`下
+
+```assembly
+.data
+.globl traphandlers
+traphandlers:
+TRAPHANDLER_NOEC(traphandler0, 0)
+TRAPHANDLER_NOEC(traphandler1, 1)
+TRAPHANDLER_NOEC(traphandler2, 2)
+```
+
+声明外部
+
+```c
+extern long traphandlers[];
+```
+
+则`trap_init`可以写为
+
+```c
+void trap_init(void)
+{
+	extern struct Segdesc gdt[];
+	int i;
+	int dpl = 0;
+	for (i = 0; i < 17; i++)
+	{
+		dpl = (i == 3 || i == 4 || i == 5 || i == 128) ? 3 : 0;
+		SETGATE(idt[i], 0, GD_KT, traphandlers[i], dpl);
+	}
+	// Per-CPU setup
+	trap_init_percpu();
+}
 ```
 
