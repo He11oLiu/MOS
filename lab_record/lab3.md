@@ -411,10 +411,9 @@ _alltraps:
   	pushw %es
 	/* %eax->%ecx->%edx->%ebx->%esp->%ebp->%esi->%edi */
   	pushal
-  	pushw $GD_KD
-	popw  %ds
-	pushw $GD_KD
-	popw  %es
+  	movw $GD_KD,%ax
+	movw %ax,%ds
+	movw %ax,%es
   	pushl %esp
   	call trap
 ```
@@ -531,5 +530,413 @@ void trap_init(void)
 	// Per-CPU setup
 	trap_init_percpu();
 }
+```
+
+
+
+## Part B: Page Faults, Breakpoints Exceptions, and System Calls
+
+### Handling Page Faults
+
+在`trap`的分发下写`switch`进行分发处理即可
+
+```c
+static void
+trap_dispatch(struct Trapframe *tf)
+{
+	// Handle processor exceptions.
+	// Unexpected trap: The user process or the kernel has a bug.
+	print_trapframe(tf);
+	if (tf->tf_cs == GD_KT)
+		panic("unhandled trap in kernel");
+	switch (tf->tf_trapno)
+	{
+	case T_PGFLT:
+		page_fault_handler(tf);
+		break;
+	default:
+		cprintf("trap no=%d\n", tf->tf_trapno);
+		env_destroy(curenv);
+		break;
+	}
+}
+```
+
+### The Breakpoint Exception
+
+添加下面的`case`即可
+
+```c
+	case T_BRKPT:
+		monitor(tf);
+		break;
+```
+
+> Challenge! Modify the JOS kernel monitor so that you can 'continue' execution from the current location (e.g., after the `int3`, if the kernel monitor was invoked via the breakpoint exception), and so that you can single-step one instruction at a time. You will need to understand certain bits of the `EFLAGS` register in order to implement single-stepping.
+
+先尝试直接添加`continue`
+
+```c
+int
+mon_continue(int argc, char **argv, struct Trapframe *tf)
+{
+	cprintf("continue enviroment...\n");
+	env_run(curenv);
+}
+```
+
+可以成功继续
+
+然后再加单步执行，修改`eflags`
+
+```c
+curenv->env_tf.tf_eflags |= (1 << 8);
+```
+
+发现会出发`debug`中断
+
+```
+K> continue
+continue enviroment...
+Incoming TRAP frame at 0xefffffbc
+TRAP frame at 0xf01be000
+  edi  0x00000000
+  esi  0x00000000
+  ebp  0xeebfdfd0
+  oesp 0xefffffdc
+  ebx  0x00000000
+  edx  0x00000000
+  ecx  0x00000000
+  eax  0x00000000
+  es   0x----0023
+  ds   0x----0023
+  trap 0x00000001 Debug
+  err  0x00000000
+  eip  0x00800044
+  cs   0x----001b
+  flag 0x00000186
+  esp  0xeebfdfc0
+  ss   0x----0023
+trap no=1
+```
+
+在`switch`中再添加`T_DEBUG`的条目
+
+```c
+	case T_DEBUG:
+		monitor(tf);
+		break;
+```
+
+可以正确调试。
+
+
+
+### System calls
+
+摸清一下脉络：以`printf`为例：
+
+用户调用`/inc/lib.h`下的`/inc/stdio.h`中的`cprintf`的实现在`lib/printf.c`中。
+
+```c
+int
+cprintf(const char *fmt, ...)
+{
+	va_list ap;
+	int cnt;
+
+	va_start(ap, fmt);
+	cnt = vcprintf(fmt, ap);
+	va_end(ap);
+
+	return cnt;
+}
+```
+
+其设计了一个`printbuf`的结构体，先用`lab1`中写的`vprintfmt`写到`printbuf`中，最后再调用`sys_cputs`来输出`buf`中的内容。
+
+`sys_cputs`在`\lib\syscall.c`中，在此函数的所有系统调用均调用了`syscall`
+
+```c
+syscall(SYS_cputs, 0, (uint32_t)s, len, 0, 0, 0);
+```
+
+而`syscall`则是产生一个`T_SYSCALL`的软中断，并将参数放到
+
+```
+DX, CX, BX, DI, SI
+```
+
+中传递走。
+
+```c
+static inline int32_t
+syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
+{
+	int32_t ret;
+
+	// Generic system call: pass system call number in AX,
+	// up to five parameters in DX, CX, BX, DI, SI.
+	// Interrupt kernel with T_SYSCALL.
+	//
+	// The "volatile" tells the assembler not to optimize
+	// this instruction away just because we don't use the
+	// return value.
+	//
+	// The last clause tells the assembler that this can
+	// potentially change the condition codes and arbitrary
+	// memory locations.
+
+	asm volatile("int %1\n"
+		     : "=a" (ret)
+		     : "i" (T_SYSCALL),
+		       "a" (num),
+		       "d" (a1),
+		       "c" (a2),
+		       "b" (a3),
+		       "D" (a4),
+		       "S" (a5)
+		     : "cc", "memory");
+
+	if(check && ret > 0)
+		panic("syscall %d returned %d (> 0)", num, ret);
+
+	return ret;
+}
+```
+
+而`\kern\syscall.c`则是内核态收到用户态传来的`syscall`并进行处理。
+
+故只用添加对应的`case`即可简单的实现
+
+```c
+	case T_SYSCALL:
+		tf->tf_regs.reg_eax = syscall(
+		tf->tf_regs.reg_eax,
+		tf->tf_regs.reg_edx,
+		tf->tf_regs.reg_ecx,
+		tf->tf_regs.reg_ebx,
+		tf->tf_regs.reg_edi,
+		tf->tf_regs.reg_esi);
+		break;
+```
+
+
+
+> Challenge! Implement system calls using the `sysenter` and `sysexit` instructions instead of using`int 0x30` and `iret`.
+>
+> The `sysenter/sysexit` instructions were designed by Intel to be faster than `int/iret`. They do this by using registers instead of the stack and by making assumptions about how the segmentation registers are used. The exact details of these instructions can be found in Volume 2B of the Intel reference manuals.
+>
+> The easiest way to add support for these instructions in JOS is to add a `sysenter_handler` in`kern/trapentry.S` that saves enough information about the user environment to return to it, sets up the kernel environment, pushes the arguments to `syscall()` and calls `syscall()` directly. Once `syscall()` returns, set everything up for and execute the `sysexit` instruction. You will also need to add code to `kern/init.c` to set up the necessary model specific registers (MSRs). Section 6.1.2 in Volume 2 of the AMD Architecture Programmer's Manual and the reference on SYSENTER in Volume 2B of the Intel reference manuals give good descriptions of the relevant MSRs. You can find an implementation of `wrmsr` to add to `inc/x86.h` for writing to these MSRs [here](http://ftp.kh.edu.tw/Linux/SuSE/people/garloff/linux/k6mod.c).
+>
+> Finally, `lib/syscall.c` must be changed to support making a system call with `sysenter`. Here is a possible register layout for the `sysenter` instruction:
+>
+> ```
+> 	eax                - syscall number
+> 	edx, ecx, ebx, edi - arg1, arg2, arg3, arg4
+> 	esi                - return pc
+> 	ebp                - return esp
+> 	esp                - trashed by sysenter
+> 	
+> ```
+>
+> GCC's inline assembler will automatically save registers that you tell it to load values directly into. Don't forget to either save (push) and restore (pop) other registers that you clobber, or tell the inline assembler that you're clobbering them. The inline assembler doesn't support saving `%ebp`, so you will need to add code to save and restore it yourself. The return address can be put into `%esi` by using an instruction like `leal after_sysenter_label, %%esi`.
+>
+> Note that this only supports 4 arguments, so you will need to leave the old method of doing system calls around to support 5 argument system calls. Furthermore, because this fast path doesn't update the current environment's trap frame, it won't be suitable for some of the system calls we add in later labs.
+>
+> You may have to revisit your code once we enable asynchronous interrupts in the next lab. Specifically, you'll need to enable interrupts when returning to the user process, which `sysexit`doesn't do for you.
+
+
+
+### User-mode startup
+
+用户程序的入口在`lib/entry.s`
+
+```assembly
+#include <inc/mmu.h>
+#include <inc/memlayout.h>
+
+.data
+// Define the global symbols 'envs', 'pages', 'uvpt', and 'uvpd'
+// so that they can be used in C as if they were ordinary global arrays.
+	.globl envs
+	.set envs, UENVS
+	.globl pages
+	.set pages, UPAGES
+	.globl uvpt
+	.set uvpt, UVPT
+	.globl uvpd
+	.set uvpd, (UVPT+(UVPT>>12)*4)
+
+
+// Entrypoint - this is where the kernel (or our parent environment)
+// starts us running when we are initially loaded into a new environment.
+.text
+.globl _start
+_start:
+	// See if we were started with arguments on the stack
+	cmpl $USTACKTOP, %esp
+	jne args_exist
+
+	// If not, push dummy argc/argv arguments.
+	// This happens when we are loaded by the kernel,
+	// because the kernel does not know about passing arguments.
+	pushl $0
+	pushl $0
+
+args_exist:
+	call libmain
+1:	jmp 1b
+```
+
+可以看到
+
+- `entry`将各种参数传给了用户的全局变量`envs`等
+- 调用了`libmain`
+
+在`libmain`中通过系统调用获取当前的`envid`并床给`thisenv`即可
+
+```c
+void
+libmain(int argc, char **argv)
+{
+	// set thisenv to point at our Env structure in envs[].
+	thisenv = 0;
+	// save the name of the program so that panic() can use it
+	if (argc > 0)
+		binaryname = argv[0];
+
+	// call user main routine
+	umain(argc, argv);
+
+	// exit gracefully
+	exit();
+}
+```
+
+### Page faults and memory protection
+
+修改`/kern/trap.c`中的页错误处理函数
+
+```c
+void page_fault_handler(struct Trapframe *tf)
+{
+	uint32_t fault_va;
+
+	// Read processor's CR2 register to find the faulting address
+	fault_va = rcr2();
+
+	// Handle kernel-mode page faults.
+	if ((tf->tf_cs & 0x3) == 0)
+		panic("kernel page fault");
+	// We've already handled kernel-mode exceptions, so if we get here,
+	// the page fault happened in user mode.
+
+	// Destroy the environment that caused the fault.
+	cprintf("[%08x] user fault va %08x ip %08x\n",
+			curenv->env_id, fault_va, tf->tf_eip);
+	print_trapframe(tf);
+	env_destroy(curenv);
+}
+```
+
+再查看`kern/pmap.c`，`user_mem_assert`只是对`user_mem_check`的封装。
+
+实现`user_mem_check`如下：
+
+```c
+int user_mem_check(struct Env *env, const void *va, size_t len, int perm)
+{
+	uintptr_t va_iter;
+	pte_t *pte;
+	va_iter = ROUNDDOWN((uintptr_t)va,PGSIZE);
+	perm |= PTE_P;
+	while (va_iter < (uintptr_t)va + len)
+	{
+		if (va_iter >= ULIM)
+		{
+			user_mem_check_addr = va_iter;
+			return -E_FAULT;
+		}
+		pte = pgdir_walk(env->env_pgdir, (void *)va_iter, 0);
+		if (!pte || (*pte & perm) != perm)
+		{
+			user_mem_check_addr = va_iter;
+			return -E_FAULT;
+		}
+		va_iter += PGSIZE;
+	}
+	return 0;
+}
+```
+
+再在`syscall.c`中的`cputs`添加检查
+
+```c
+static void
+sys_cputs(const char *s, size_t len)
+{
+	// Check that the user has permission to read memory [s, s+len).
+	// Destroy the environment if not.
+	user_mem_assert(curenv, (void*)s, len, PTE_U);
+	// Print the string supplied by the user.
+	cprintf("%.*s", len, s);
+}
+```
+
+> Finally, change `debuginfo_eip` in `kern/kdebug.c` to call `user_mem_check` on `usd`, `stabs`, and `stabstr`. If you now run `user/breakpoint`, you should be able to run backtrace from the kernel monitor and see the backtrace traverse into `lib/libmain.c` before the kernel panics with a page fault. What causes this page fault? You don't need to fix it, but you should understand why it happens.
+
+利用`user_mem_check`即可
+
+```c
+	else
+	{
+		// The user-application linker script, user/user.ld,
+		// puts information about the application's stabs (equivalent
+		// to __STAB_BEGIN__, __STAB_END__, __STABSTR_BEGIN__, and
+		// __STABSTR_END__) in a structure located at virtual address
+		// USTABDATA.
+		const struct UserStabData *usd = (const struct UserStabData *)USTABDATA;
+
+		// Make sure this memory is valid.
+		// Return -1 if it is not.  Hint: Call user_mem_check.
+		if (user_mem_check(curenv, usd, sizeof(struct UserStabData), PTE_U) < 0)
+			return -1;
+
+		stabs = usd->stabs;
+		stab_end = usd->stab_end;
+		stabstr = usd->stabstr;
+		stabstr_end = usd->stabstr_end;
+
+		// Make sure the STABS and string table memory is valid.
+		if (user_mem_check(curenv, stabs, stab_end - stabs, PTE_U) < 0)
+			return -1;
+		if (user_mem_check(curenv, stabstr, stabstr_end - stabstr, PTE_U) < 0)
+			return -1;
+	}
+```
+
+结果检查的时候出现错误，是因为……`ROUNDDOWN`了
+
+再修改`user_mem_check`
+
+```c
+	va_iter = (uintptr_t)va;
+	perm |= PTE_P;
+	while (va_iter < (uintptr_t)va + len)
+	{
+		if (va_iter >= ULIM)
+		{
+			user_mem_check_addr = va_iter;
+			return -E_FAULT;
+		}
+		pte = pgdir_walk(env->env_pgdir, (void *)va_iter, 0);
+		if (!pte || (*pte & perm) != perm)
+		{
+			user_mem_check_addr = va_iter;
+			return -E_FAULT;
+		}
+		va_iter = ROUNDDOWN(va_iter + PGSIZE, PGSIZE);
+	}
 ```
 

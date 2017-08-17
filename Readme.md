@@ -14,5 +14,9 @@
 - [ ] lab1 challenge: VGA GUI
 - [x] lab2 Memory Management
 - [ ] lab2 challenge
-- [ ] lab3 User Environments
+- [x] lab3 User Environments
+- [x] lab3 challenge: single step debug
+- [ ] lab3 challenge: sysenter & sysexit
+- [ ] Lab 4: Preemptive Multitasking
+
 

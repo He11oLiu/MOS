@@ -47,6 +47,18 @@
 	.data;														\
 	.long name;
 
+#define SYSCALLHANDLER(name, num)								\
+	.text;														\
+	.globl name;													\
+	.type name, @function;										\
+	.align 2;													\
+	name:														\
+	pushl $(num);												\
+	jmp _alltraps;												\
+	.data;														\
+	.long name;
+
+
 .data
 .globl traphandlers
 traphandlers:
@@ -70,6 +82,39 @@ TRAPHANDLER(traphandler13, 13)
 TRAPHANDLER(traphandler14, 14)
 TRAPHANDLER(traphandler15, 15)
 TRAPHANDLER_NOEC(traphandler16, 16)
+TRAPHANDLER_NOEC(traphandler17, 17)
+TRAPHANDLER_NOEC(traphandler18, 18)
+TRAPHANDLER_NOEC(traphandler19, 19)
+TRAPHANDLER_NOEC(traphandler20, 20)
+TRAPHANDLER_NOEC(traphandler21, 21)
+TRAPHANDLER_NOEC(traphandler22, 22)
+TRAPHANDLER_NOEC(traphandler23, 23)
+TRAPHANDLER_NOEC(traphandler24, 24)
+TRAPHANDLER_NOEC(traphandler25, 25)
+TRAPHANDLER_NOEC(traphandler26, 26)
+TRAPHANDLER_NOEC(traphandler27, 27)
+TRAPHANDLER_NOEC(traphandler28, 28)
+TRAPHANDLER_NOEC(traphandler29, 29)
+TRAPHANDLER_NOEC(traphandler30, 30)
+TRAPHANDLER_NOEC(traphandler31, 31)
+TRAPHANDLER_NOEC(traphandler32, 32)
+TRAPHANDLER_NOEC(traphandler33, 33)
+TRAPHANDLER_NOEC(traphandler34, 34)
+TRAPHANDLER_NOEC(traphandler35, 35)
+TRAPHANDLER_NOEC(traphandler36, 36)
+TRAPHANDLER_NOEC(traphandler37, 37)
+TRAPHANDLER_NOEC(traphandler38, 38)
+TRAPHANDLER_NOEC(traphandler39, 39)
+TRAPHANDLER_NOEC(traphandler40, 40)
+TRAPHANDLER_NOEC(traphandler41, 41)
+TRAPHANDLER_NOEC(traphandler42, 42)
+TRAPHANDLER_NOEC(traphandler43, 43)
+TRAPHANDLER_NOEC(traphandler44, 44)
+TRAPHANDLER_NOEC(traphandler45, 45)
+TRAPHANDLER_NOEC(traphandler46, 46)
+TRAPHANDLER_NOEC(traphandler47, 47)
+TRAPHANDLER_NOEC(traphandler48, 48)
+
 
 /*
  * _alltraps:
@@ -85,8 +130,8 @@ _alltraps:
   	pushw %es
 	/* %eax->%ecx->%edx->%ebx->%esp->%ebp->%esi->%edi */
   	pushal
-  	movw $GD_KD,%eax
-	movw %eax,%ds
-	movw %eax,%es
+  	movw $GD_KD,%ax
+	movw %ax,%ds
+	movw %ax,%es
   	pushl %esp
   	call trap

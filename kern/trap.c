@@ -60,9 +60,9 @@ void trap_init(void)
 	extern struct Segdesc gdt[];
 	int i;
 	int dpl = 0;
-	for (i = 0; i < 17; i++)
+	for (i = 0; i < 49; i++)
 	{
-		dpl = (i == 3 || i == 4 || i == 5 || i == 128) ? 3 : 0;
+		dpl = (i == 3 || i == 4 || i == 5 || i == 48) ? 3 : 0;
 		SETGATE(idt[i], 0, GD_KT, traphandlers[i], dpl);
 	}
 	// Per-CPU setup
@@ -139,16 +139,34 @@ static void
 trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
-	// LAB 3: Your code here.
-
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
-	else
+	switch (tf->tf_trapno)
 	{
+	case T_DEBUG:
+		monitor(tf);
+		break;
+	case T_BRKPT:
+		monitor(tf);
+		break;
+	case T_PGFLT:
+		page_fault_handler(tf);
+		break;
+	case T_SYSCALL:
+		tf->tf_regs.reg_eax = syscall(
+			tf->tf_regs.reg_eax,
+			tf->tf_regs.reg_edx,
+			tf->tf_regs.reg_ecx,
+			tf->tf_regs.reg_ebx,
+			tf->tf_regs.reg_edi,
+			tf->tf_regs.reg_esi);
+		break;
+	default:
+		cprintf("trap no=%d\n", tf->tf_trapno);
 		env_destroy(curenv);
-		return;
+		break;
 	}
 }
 
@@ -199,9 +217,8 @@ void page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
-
-	// LAB 3: Your code here.
-
+	if ((tf->tf_cs & 0x3) == 0)
+		panic("kernel page fault");
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 

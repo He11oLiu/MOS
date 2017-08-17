@@ -20,5 +20,6 @@ void print_trapframe(struct Trapframe *tf);
 void page_fault_handler(struct Trapframe *);
 void backtrace(struct Trapframe *);
 extern long traphandlers[];
+extern void syscallhandler();
 
 #endif /* JOS_KERN_TRAP_H */

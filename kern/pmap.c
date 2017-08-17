@@ -190,7 +190,6 @@ void mem_init(void)
 	//    - envs itself -- kernel RW, user NONE
 	boot_map_region(kern_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_U | PTE_P);
 
-	
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
 	// We consider the entire range from [KSTACKTOP-PTSIZE, KSTACKTOP)
@@ -205,7 +204,6 @@ void mem_init(void)
 	// cprintf("%#x~%#x->%#x~%#x\n", PADDR(bootstack), PADDR(bootstack) + KSTKSIZE, KSTACKTOP - KSTKSIZE, KSTACKTOP);
 	// KSTACKTOP - PTSIZE ~ KSTACKTOP-KSTKSIZE not backed
 
-	
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
 	//      the PA range [0, 2^32 - KERNBASE)
@@ -548,8 +546,25 @@ static uintptr_t user_mem_check_addr;
 //
 int user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	// LAB 3: Your code here.
-
+	uintptr_t va_iter;
+	pte_t *pte;
+	va_iter = (uintptr_t)va;
+	perm |= PTE_P;
+	while (va_iter < (uintptr_t)va + len)
+	{
+		if (va_iter >= ULIM)
+		{
+			user_mem_check_addr = va_iter;
+			return -E_FAULT;
+		}
+		pte = pgdir_walk(env->env_pgdir, (void *)va_iter, 0);
+		if (!pte || (*pte & perm) != perm)
+		{
+			user_mem_check_addr = va_iter;
+			return -E_FAULT;
+		}
+		va_iter = ROUNDDOWN(va_iter + PGSIZE, PGSIZE);
+	}
 	return 0;
 }
 
