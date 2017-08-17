@@ -15,4 +15,9 @@
 /lab?/
 /sol?/
 /myapi.key
+<<<<<<< HEAD
 /.suf
+=======
+**/.DS_Store
+settings.json
+>>>>>>> lab3
