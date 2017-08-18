@@ -16,9 +16,7 @@
 
 static void boot_aps(void);
 
-
-void
-i386_init(void)
+void i386_init(void)
 {
 	extern char edata[], end[];
 
@@ -52,7 +50,7 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-
+	cprintf("boot aps...\n");
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -86,25 +84,25 @@ boot_aps(void)
 	memmove(code, mpentry_start, mpentry_end - mpentry_start);
 
 	// Boot each AP one at a time
-	for (c = cpus; c < cpus + ncpu; c++) {
-		if (c == cpus + cpunum())  // We've started already.
+	for (c = cpus; c < cpus + ncpu; c++)
+	{
+		if (c == cpus + cpunum()) // We've started already.
 			continue;
 
-		// Tell mpentry.S what stack to use 
+		// Tell mpentry.S what stack to use
 		mpentry_kstack = percpu_kstacks[c - cpus] + KSTKSIZE;
 		// Start the CPU at mpentry_start
 		lapic_startap(c->cpu_id, PADDR(code));
 		// Wait for the CPU to finish some basic setup in mp_main()
-		while(c->cpu_status != CPU_STARTED)
+		while (c->cpu_status != CPU_STARTED)
 			;
 	}
 }
 
 // Setup code for APs
-void
-mp_main(void)
+void mp_main(void)
 {
-	// We are in high EIP now, safe to switch to kern_pgdir 
+	// We are in high EIP now, safe to switch to kern_pgdir
 	lcr3(PADDR(kern_pgdir));
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
@@ -120,7 +118,8 @@ mp_main(void)
 	// Your code here:
 
 	// Remove this after you finish Exercise 4
-	for (;;);
+	for (;;)
+		;
 }
 
 /*
@@ -133,8 +132,7 @@ const char *panicstr;
  * Panic is called on= unresolvable fatal errors.
  * It prints "panic: mesg", and then enters the kernel monitor.
  */
-void
-_panic(const char *file, int line, const char *fmt,...)
+void _panic(const char *file, int line, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -158,8 +156,7 @@ dead:
 }
 
 /* like panic, but don't */
-void
-_warn(const char *file, int line, const char *fmt,...)
+void _warn(const char *file, int line, const char *fmt, ...)
 {
 	va_list ap;
 

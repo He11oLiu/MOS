@@ -17,57 +17,59 @@ int ncpu;
 
 // Per-CPU kernel stacks
 unsigned char percpu_kstacks[NCPU][KSTKSIZE]
-__attribute__ ((aligned(PGSIZE)));
-
+	__attribute__((aligned(PGSIZE)));
 
 // See MultiProcessor Specification Version 1.[14]
 
-struct mp {             // floating pointer [MP 4.1]
-	uint8_t signature[4];           // "_MP_"
-	physaddr_t physaddr;            // phys addr of MP config table
-	uint8_t length;                 // 1
-	uint8_t specrev;                // [14]
-	uint8_t checksum;               // all bytes must add up to 0
-	uint8_t type;                   // MP system config type
+struct mp
+{						  // floating pointer [MP 4.1]
+	uint8_t signature[4]; // "_MP_"
+	physaddr_t physaddr;  // phys addr of MP config table
+	uint8_t length;		  // 1
+	uint8_t specrev;	  // [14]
+	uint8_t checksum;	 // all bytes must add up to 0
+	uint8_t type;		  // MP system config type
 	uint8_t imcrp;
 	uint8_t reserved[3];
 } __attribute__((__packed__));
 
-struct mpconf {         // configuration table header [MP 4.2]
-	uint8_t signature[4];           // "PCMP"
-	uint16_t length;                // total table length
-	uint8_t version;                // [14]
-	uint8_t checksum;               // all bytes must add up to 0
-	uint8_t product[20];            // product id
-	physaddr_t oemtable;            // OEM table pointer
-	uint16_t oemlength;             // OEM table length
-	uint16_t entry;                 // entry count
-	physaddr_t lapicaddr;           // address of local APIC
-	uint16_t xlength;               // extended table length
-	uint8_t xchecksum;              // extended table checksum
+struct mpconf
+{						  // configuration table header [MP 4.2]
+	uint8_t signature[4]; // "PCMP"
+	uint16_t length;	  // total table length
+	uint8_t version;	  // [14]
+	uint8_t checksum;	 // all bytes must add up to 0
+	uint8_t product[20];  // product id
+	physaddr_t oemtable;  // OEM table pointer
+	uint16_t oemlength;   // OEM table length
+	uint16_t entry;		  // entry count
+	physaddr_t lapicaddr; // address of local APIC
+	uint16_t xlength;	 // extended table length
+	uint8_t xchecksum;	// extended table checksum
 	uint8_t reserved;
-	uint8_t entries[0];             // table entries
+	uint8_t entries[0]; // table entries
 } __attribute__((__packed__));
 
-struct mpproc {         // processor table entry [MP 4.3.1]
-	uint8_t type;                   // entry type (0)
-	uint8_t apicid;                 // local APIC id
-	uint8_t version;                // local APIC version
-	uint8_t flags;                  // CPU flags
-	uint8_t signature[4];           // CPU signature
-	uint32_t feature;               // feature flags from CPUID instruction
+struct mpproc
+{						  // processor table entry [MP 4.3.1]
+	uint8_t type;		  // entry type (0)
+	uint8_t apicid;		  // local APIC id
+	uint8_t version;	  // local APIC version
+	uint8_t flags;		  // CPU flags
+	uint8_t signature[4]; // CPU signature
+	uint32_t feature;	 // feature flags from CPUID instruction
 	uint8_t reserved[8];
 } __attribute__((__packed__));
 
 // mpproc flags
-#define MPPROC_BOOT 0x02                // This mpproc is the bootstrap processor
+#define MPPROC_BOOT 0x02 // This mpproc is the bootstrap processor
 
 // Table entry types
-#define MPPROC    0x00  // One per processor
-#define MPBUS     0x01  // One per bus
-#define MPIOAPIC  0x02  // One per I/O APIC
-#define MPIOINTR  0x03  // One per bus interrupt source
-#define MPLINTR   0x04  // One per system interrupt source
+#define MPPROC 0x00   // One per processor
+#define MPBUS 0x01	// One per bus
+#define MPIOAPIC 0x02 // One per I/O APIC
+#define MPIOINTR 0x03 // One per bus interrupt source
+#define MPLINTR 0x04  // One per system interrupt source
 
 static uint8_t
 sum(void *addr, int len)
@@ -88,7 +90,7 @@ mpsearch1(physaddr_t a, int len)
 
 	for (; mp < end; mp++)
 		if (memcmp(mp->signature, "_MP_", 4) == 0 &&
-		    sum(mp, sizeof(*mp)) == 0)
+			sum(mp, sizeof(*mp)) == 0)
 			return mp;
 	return NULL;
 }
@@ -108,18 +110,21 @@ mpsearch(void)
 	static_assert(sizeof(*mp) == 16);
 
 	// The BIOS data area lives in 16-bit segment 0x40.
-	bda = (uint8_t *) KADDR(0x40 << 4);
+	bda = (uint8_t *)KADDR(0x40 << 4);
 
 	// [MP 4] The 16-bit segment of the EBDA is in the two bytes
 	// starting at byte 0x0E of the BDA.  0 if not present.
-	if ((p = *(uint16_t *) (bda + 0x0E))) {
-		p <<= 4;	// Translate from segment to PA
+	if ((p = *(uint16_t *)(bda + 0x0E)))
+	{
+		p <<= 4; // Translate from segment to PA
 		if ((mp = mpsearch1(p, 1024)))
 			return mp;
-	} else {
+	}
+	else
+	{
 		// The size of base memory, in KB is in the two bytes
 		// starting at 0x13 of the BDA.
-		p = *(uint16_t *) (bda + 0x13) * 1024;
+		p = *(uint16_t *)(bda + 0x13) * 1024;
 		if ((mp = mpsearch1(p - 1024, 1024)))
 			return mp;
 	}
@@ -137,24 +142,29 @@ mpconfig(struct mp **pmp)
 
 	if ((mp = mpsearch()) == 0)
 		return NULL;
-	if (mp->physaddr == 0 || mp->type != 0) {
+	if (mp->physaddr == 0 || mp->type != 0)
+	{
 		cprintf("SMP: Default configurations not implemented\n");
 		return NULL;
 	}
-	conf = (struct mpconf *) KADDR(mp->physaddr);
-	if (memcmp(conf, "PCMP", 4) != 0) {
+	conf = (struct mpconf *)KADDR(mp->physaddr);
+	if (memcmp(conf, "PCMP", 4) != 0)
+	{
 		cprintf("SMP: Incorrect MP configuration table signature\n");
 		return NULL;
 	}
-	if (sum(conf, conf->length) != 0) {
+	if (sum(conf, conf->length) != 0)
+	{
 		cprintf("SMP: Bad MP configuration checksum\n");
 		return NULL;
 	}
-	if (conf->version != 1 && conf->version != 4) {
+	if (conf->version != 1 && conf->version != 4)
+	{
 		cprintf("SMP: Unsupported MP version %d\n", conf->version);
 		return NULL;
 	}
-	if ((sum((uint8_t *)conf + conf->length, conf->xlength) + conf->xchecksum) & 0xff) {
+	if ((sum((uint8_t *)conf + conf->length, conf->xlength) + conf->xchecksum) & 0xff)
+	{
 		cprintf("SMP: Bad MP configuration extended checksum\n");
 		return NULL;
 	}
@@ -162,8 +172,7 @@ mpconfig(struct mp **pmp)
 	return conf;
 }
 
-void
-mp_init(void)
+void mp_init(void)
 {
 	struct mp *mp;
 	struct mpconf *conf;
@@ -177,18 +186,23 @@ mp_init(void)
 	ismp = 1;
 	lapicaddr = conf->lapicaddr;
 
-	for (p = conf->entries, i = 0; i < conf->entry; i++) {
-		switch (*p) {
+	for (p = conf->entries, i = 0; i < conf->entry; i++)
+	{
+		switch (*p)
+		{
 		case MPPROC:
 			proc = (struct mpproc *)p;
 			if (proc->flags & MPPROC_BOOT)
 				bootcpu = &cpus[ncpu];
-			if (ncpu < NCPU) {
+			if (ncpu < NCPU)
+			{
 				cpus[ncpu].cpu_id = ncpu;
 				ncpu++;
-			} else {
+			}
+			else
+			{
 				cprintf("SMP: too many CPUs, CPU %d disabled\n",
-					proc->apicid);
+						proc->apicid);
 			}
 			p += sizeof(struct mpproc);
 			continue;
@@ -206,20 +220,22 @@ mp_init(void)
 	}
 
 	bootcpu->cpu_status = CPU_STARTED;
-	if (!ismp) {
+	if (!ismp)
+	{
 		// Didn't like what we found; fall back to no MP.
 		ncpu = 1;
 		lapicaddr = 0;
 		cprintf("SMP: configuration not found, SMP disabled\n");
 		return;
 	}
-	cprintf("SMP: CPU %d found %d CPU(s)\n", bootcpu->cpu_id,  ncpu);
+	cprintf("SMP: CPU %d found %d CPU(s)\n", bootcpu->cpu_id, ncpu);
 
-	if (mp->imcrp) {
+	if (mp->imcrp)
+	{
 		// [MP 3.2.6.1] If the hardware implements PIC mode,
 		// switch to getting interrupts from the LAPIC.
 		cprintf("SMP: Setting IMCR to switch from PIC mode to symmetric I/O mode\n");
-		outb(0x22, 0x70);   // Select IMCR
-		outb(0x23, inb(0x23) | 1);  // Mask external interrupts.
+		outb(0x22, 0x70);		   // Select IMCR
+		outb(0x23, inb(0x23) | 1); // Mask external interrupts.
 	}
 }

@@ -41,17 +41,17 @@ struct Segdesc gdt[NCPU + 5] =
 	// 0x0 - unused (always faults -- for trapping NULL far pointers)
 	SEG_NULL,
 
-		// 0x8 - kernel code segment
-		[GD_KT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 0),
+	// 0x8 - kernel code segment
+	[GD_KT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 0),
 
-		// 0x10 - kernel data segment
-		[GD_KD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 0),
+	// 0x10 - kernel data segment
+	[GD_KD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 0),
 
-		// 0x18 - user code segment
-		[GD_UT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 3),
+	// 0x18 - user code segment
+	[GD_UT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 3),
 
-		// 0x20 - user data segment
-		[GD_UD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 3),
+	// 0x20 - user data segment
+	[GD_UD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 3),
 
 	// Per-CPU TSS descriptors (starting from GD_TSS0) are initialized
 	// in trap_init_percpu()
