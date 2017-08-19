@@ -221,7 +221,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 	region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
-
+	e->env_tf.tf_esp = USTACKTOP;
 	// reload kern's pd
 	lcr3(PADDR(kern_pgdir));
 }
