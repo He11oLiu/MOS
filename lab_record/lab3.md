@@ -253,7 +253,7 @@ void env_run(struct Env *e)
 {
 	// 	If this is a context switch (a new environment is running):
 	//	Set the current environment (if any) back to ENV_RUNNABLE
-	if (curenv == NULL && curenv != e)
+	if (curenv == NULL || curenv != e)
 	{
 		if (curenv != NULL && curenv->env_status == ENV_RUNNING)
 			curenv->env_status = ENV_RUNNABLE;
@@ -271,7 +271,6 @@ void env_run(struct Env *e)
 
 	panic("env_run not yet implemented");
 }
-
 ```
 
 

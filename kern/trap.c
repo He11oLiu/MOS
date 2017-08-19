@@ -189,9 +189,7 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 4: Your code here.
 
 	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	// if (tf->tf_cs == GD_KT)
-	// 	panic("unhandled trap in kernel");
+	// print_trapframe(tf);
 	switch (tf->tf_trapno)
 	{
 	case T_DEBUG:
@@ -245,7 +243,7 @@ void trap(struct Trapframe *tf)
 		// Trapped from user mode.
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
-		// LAB 4: Your code here.
+		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie

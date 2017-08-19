@@ -199,3 +199,301 @@ int cpunum(void)
 - **Per-CPU system registers**
 
   All registers, including system registers, are private to a CPU. Therefore, instructions that initialize these registers, such as `lcr3()`, `ltr()`, `lgdt()`, `lidt()`, etc., must be executed once on each CPU. Functions `env_init_percpu()` and `trap_init_percpu()` are defined for this purpose.
+
+  将每个`cpu`需要单独执行一遍的部分打包在`percpu()`中，在`mp_main`中调用这些方法。
+
+  ```
+  	env_init_percpu();
+  	trap_init_percpu();
+  ```
+
+### Locking
+
+#### Exercise 5
+
+Apply the big kernel lock as described above, by calling `lock_kernel()` and `unlock_kernel()` at the proper locations.
+
+首先看下`spinlock`的实现
+
+```c
+// Mutual exclusion lock.
+struct spinlock {
+	unsigned locked;       // Is the lock held?
+
+#ifdef DEBUG_SPINLOCK
+	// For debugging:
+	char *name;            // Name of lock.
+	struct CpuInfo *cpu;   // The CPU holding the lock.
+	uintptr_t pcs[10];     // The call stack (an array of program counters)
+	                       // that locked the lock.
+#endif
+};
+```
+
+可以发现这种设计，在`DEBUG`模式下，可以顺带保存获取的`CPU`，调用栈，和锁的名字来查错。
+
+`big kernel lock`顶层包装了两个函数
+
+```c
+static inline void
+lock_kernel(void)
+{
+	spin_lock(&kernel_lock);
+}
+
+static inline void
+unlock_kernel(void)
+{
+	spin_unlock(&kernel_lock);
+
+	// Normally we wouldn't need to do this, but QEMU only runs
+	// one CPU at a time and has a long time-slice.  Without the
+	// pause, this CPU is likely to reacquire the lock before
+	// another CPU has even been given a chance to acquire it.
+	asm volatile("pause");
+}
+```
+
+其中`unlock`后`pause`的原因是，`QEMU`模拟多`CPU`的时候，给了每一个`CPU`一个非常长的`slice`，导致这个`cpu`老是有更多的机会获取锁，这里类似给其他`cpu`机会来获取锁。
+
+再往下看具体`spin lock`的实现
+
+```c
+void
+spin_lock(struct spinlock *lk)
+{
+#ifdef DEBUG_SPINLOCK
+	if (holding(lk))
+		panic("CPU %d cannot acquire %s: already holding", cpunum(), lk->name);
+#endif
+
+	// The xchg is atomic.
+	// It also serializes, so that reads after acquire are not
+	// reordered before it. 
+	while (xchg(&lk->locked, 1) != 0)
+		asm volatile ("pause");
+
+	// Record info about lock acquisition for debugging.
+#ifdef DEBUG_SPINLOCK
+	lk->cpu = thiscpu;
+	get_caller_pcs(lk->pcs);
+#endif
+}
+```
+
+最核心的`while(xchg(&lk->locked,1)!=0)` `xchg`是原子操作，保证了锁获取的原子性。
+
+解锁同样也使用
+
+```c
+	// The xchg instruction is atomic (i.e. uses the "lock" prefix) with
+	// respect to any other instruction which references the same memory.
+	// x86 CPUs will not reorder loads/stores across locked instructions
+	// (vol 3, 8.2.2). Because xchg() is implemented using asm volatile,
+	// gcc will not reorder C statements across the xchg.
+	xchg(&lk->locked, 0);
+```
+
+注释这里说`xchg`在实现的时候，里面先用了`lock;`的汇编指令，保证了`x86 cpus`不会执行其后的指令，也就是**内存屏障**。
+
+而`xchg`用的是`asm volatile`，故`gcc`也不会将指令在这个指令的周围进行优化，同样是编译里的**内存屏障**。
+
+ 然后，在合适的位置添加锁：
+
+- In `i386_init()`, acquire the lock before the BSP wakes up the other CPUs. 
+
+  ```c
+  	// Acquire the big kernel lock before waking up APs
+  	lock_kernel();
+  	// Starting non-boot CPUs
+  	boot_aps();
+  ```
+
+- In `mp_main()`, acquire the lock after initializing the AP, and then call `sched_yield()` to start running environments on this AP.
+
+  ```c
+  	// Now that we have finished some basic setup, call sched_yield()
+  	// to start running processes on this CPU.  But make sure that
+  	// only one CPU can enter the scheduler at a time!
+  	//
+  	lock_kernel();
+  	sched_yield();
+  ```
+
+- In `trap()`, acquire the lock when trapped from user mode. To determine whether a trap happened in user mode or in kernel mode, check the low bits of the `tf_cs`.
+
+  ```c
+  	if ((tf->tf_cs & 3) == 3)
+  	{
+  		// Trapped from user mode.
+  		// Acquire the big kernel lock before doing any
+  		// serious kernel work.
+  		lock_kernel();
+  ```
+
+- In `env_run()`, release the lock *right before* switching to user mode. Do not do that too early or too late, otherwise you will experience races or deadlocks.
+
+  ```c
+  	unlock_kernel();
+  	// eip has been set in load_icode
+  	// restore the environment's registers
+  	env_pop_tf(&e->env_tf);
+  ```
+
+#### Question
+
+It seems that using the big kernel lock guarantees that only one CPU can run the kernel code at a time. Why do we still need separate kernel stacks for each CPU? Describe a scenario in which using a shared kernel stack will go wrong, even with the protection of the big kernel lock.
+
+中断进`trap`之前需要`push`东西，虽然不能获取内核，但是其`push`的东西仍然会使得内核栈多东西。
+
+> Challenge! The big kernel lock is simple and easy to use. Nevertheless, it eliminates all concurrency in kernel mode. Most modern operating systems use different locks to protect different parts of their shared state, an approach called *fine-grained locking*. Fine-grained locking can increase performance significantly, but is more difficult to implement and error-prone. If you are brave enough, drop the big kernel lock and embrace concurrency in JOS!
+>
+> It is up to you to decide the locking granularity (the amount of data that a lock protects). As a hint, you may consider using spin locks to ensure exclusive access to these shared components in the JOS kernel:
+>
+> - The page allocator.
+> - The console driver.
+> - The scheduler.
+> - The inter-process communication (IPC) state that you will implement in the part C.
+
+
+
+### Round-Robin Scheduling
+
+现在做的调度还是非抢占的任务调度，所以设计了新的系统调用`sys_yield`，用户可以通过调用`sys_yield`，来陷入内核调用`sched_yield`进行调度。
+
+#### Exercise 6
+
+Implement round-robin scheduling in `sched_yield()` as described above. 
+
+```c
+// Choose a user environment to run and run it.
+void sched_yield(void)
+{
+	struct Env *idle;
+	int i, cur_i;
+	if (!curenv)
+	{
+		for (i = 0; i < NENV; i++)
+			if (envs[i].env_status == ENV_RUNNABLE)
+				env_run(&envs[i]);
+	}
+	else
+	{
+		cur_i = ENVX(curenv->env_id);
+		for (i = cur_i + 1; i < NENV + cur_i; i++)
+			if (envs[i % NENV].env_status == ENV_RUNNABLE)
+				env_run(&envs[i]);
+		if (curenv->env_status == ENV_RUNNING)
+			env_run(curenv);
+	}
+
+	// sched_halt never returns
+	sched_halt();
+}
+```
+
+Don't forget to modify `syscall()` to dispatch `sys_yield()`.
+
+```
+	case SYS_yield:
+		return sys_yield();
+```
+
+Make sure to invoke `sched_yield()` in `mp_main`.
+
+Modify `kern/init.c` to create three (or more!) environments that all run the program `user/yield.c`.
+
+```
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
+```
+
+然后发现原来`env_run`写错了... 修改后可以正确`shed`
+
+```
+[00000000] new env 00001000
+[00000000] new env 00001001
+[00000000] new env 00001002
+Hello, I am environment 00001000.
+Hello, I am environment 00001001.
+Hello, I am environment 00001002.
+Back in environment 00001000, iteration 0.
+Back in environment 00001001, iteration 0.
+Back in environment 00001002, iteration 0.
+Back in environment 00001000, iteration 1.
+Back in environment 00001001, iteration 1.
+Back in environment 00001002, iteration 1.
+Back in environment 00001000, iteration 2.
+Back in environment 00001001, iteration 2.
+Back in environment 00001002, iteration 2.
+Back in environment 00001000, iteration 3.
+Back in environment 00001001, iteration 3.
+Back in environment 00001002, iteration 3.
+Back in environment 00001000, iteration 4.
+All done in environment 00001000.
+[00001000] exiting gracefully
+[00001000] free env 00001000
+Back in environment 00001001, iteration 4.
+All done in environment 00001001.
+[00001001] exiting gracefully
+[00001001] free env 00001001
+Back in environment 00001002, iteration 4.
+All done in environment 00001002.
+[00001002] exiting gracefully
+[00001002] free env 00001002
+No runnable environments in the system!
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+K> 
+```
+
+> If you use CPUS=1 at this point, all environments should successfully run. Setting CPUS larger than 1 at this time may result in a general protection fault, kernel page fault, or other unexpected interrupt once there are no more runnable environments due to unhandled timer interrupts (which we will fix below!).
+
+#### Question
+
+1. In your implementation of `env_run()` you should have called `lcr3()`. Before and after the call to `lcr3()`, your code makes references (at least it should) to the variable `e`, the argument to `env_run`. Upon loading the `%cr3` register, the addressing context used by the MMU is instantly changed. But a virtual address (namely `e`) has meaning relative to a given address context--the address context specifies the physical address to which the virtual address maps. Why can the pointer `e` be dereferenced both before and after the addressing switch?
+
+   `e`是在内核的，所有的`env`的内核部分的页表是直接复制的`kernpgdir`，所以他们两映射的地址是一样的。
+
+2. Whenever the kernel switches from one environment to another, it must ensure the old environment's registers are saved so they can be restored properly later. Why? Where does this happen?
+
+   我的`syscall`目前还是走的`trap`，在`trap()`中保存
+
+   ```c
+   // Copy trap frame (which is currently on the stack)
+   // into 'curenv->env_tf', so that running the environment
+   // will restart at the trap point.
+   curenv->env_tf = *tf;
+   // The trapframe on the stack should be ignored from here on.
+   tf = &curenv->env_tf;
+   ```
+
+在这里完全理解了当前的`trap`相关的结构。
+
+在`env_create`时调用的`load_icodes`使得所有的`env`均有分配自己的地址空间，并且分配了单独的大小为`PGSIZE`的栈，放在了对应的`env`的地址空间中的`USTACKTOP`。
+
+然后发现在写`load_icodes`的时候没有初始化`tf`中的`esp`
+
+```c
+region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
+e->env_tf.tf_esp = USTACKTOP;
+```
+
+当每次`syscall`或者陷入`trap`的时候，都把`tf`丢到了这个栈里面。
+
+`trap`里面没有切到内核的页表，所以在处理正常需要返回的`trap`的时候，直接从这个`tf`返回去。当处理需要`sched`的`case`的时候，会在`env_run`的时候切到那个`env`的页表。
+
+- 若该`env`刚刚加载，`tf`是手动设置的。`iret`后栈就到了我们设置的`eip`与`esp`。
+- 若该`env`是被`sched`走的话，`tf`是中断自己压的+`trap entry`时压的内容。最终`iret`会恢复`esp`的值，也就是恢复到陷入到`trap`之前。
+
+> Challenge! 
+>
+> Add a less trivial scheduling policy to the kernel, such as a fixed-priority scheduler that allows each environment to be assigned a priority and ensures that higher-priority environments are always chosen in preference to lower-priority environments. If you're feeling really adventurous, try implementing a Unix-style adjustable-priority scheduler or even a lottery or stride scheduler. (Look up "lottery scheduling" and "stride scheduling" in Google.)
+>
+> Write a test program or two that verifies that your scheduling algorithm is working correctly (i.e., the right environments get run in the right order). It may be easier to write these test programs once you have implemented `fork()` and IPC in parts B and C of this lab.
+
+> Challenge! 
+>
+> The JOS kernel currently does not allow applications to use the x86 processor's x87 floating-point unit (FPU), MMX instructions, or Streaming SIMD Extensions (SSE). Extend the `Env` structure to provide a save area for the processor's floating point state, and extend the context switching code to save and restore this state properly when switching from one environment to another. The `FXSAVE` and `FXRSTOR`instructions may be useful, but note that these are not in the old i386 user's manual because they were introduced in more recent processors. Write a user-level test program that does something cool with floating-point.
+

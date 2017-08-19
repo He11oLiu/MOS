@@ -58,8 +58,11 @@ struct Segdesc gdt[NCPU + 5] =
 	[GD_TSS0 >> 3] = SEG_NULL
 };
 
-struct Pseudodesc gdt_pd = {
-	sizeof(gdt) - 1, (unsigned long)gdt};
+struct Pseudodesc gdt_pd = 
+{
+	sizeof(gdt) - 1, 
+	(unsigned long)gdt
+};
 
 //
 // Converts an envid to an env pointer.
@@ -393,12 +396,12 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	//  You must also do something with the program's entry point,
 	//  to make sure that the environment starts executing there.
-	//  What?  (See env_run() and env_pop_tf() below.)
 	e->env_tf.tf_eip = ELFENV->e_entry;
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 	region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
+	e->env_tf.tf_esp = USTACKTOP;
 
 	// reload kern's pd
 	lcr3(PADDR(kern_pgdir));
@@ -533,7 +536,7 @@ void env_run(struct Env *e)
 {
 	// 	If this is a context switch (a new environment is running):
 	//	Set the current environment (if any) back to ENV_RUNNABLE
-	if (curenv == NULL && curenv != e)
+	if (curenv == NULL || curenv != e)
 	{
 		if (curenv != NULL && curenv->env_status == ENV_RUNNING)
 			curenv->env_status = ENV_RUNNABLE;
@@ -545,9 +548,8 @@ void env_run(struct Env *e)
 		// switch to its address space
 		lcr3(PADDR(e->env_pgdir));
 	}
+	unlock_kernel();
 	// eip has been set in load_icode
 	// restore the environment's registers
 	env_pop_tf(&e->env_tf);
-
-	panic("env_run not yet implemented");
 }
