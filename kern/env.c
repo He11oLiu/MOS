@@ -340,7 +340,6 @@ region_alloc(struct Env *e, void *va, size_t len)
 static void
 load_icode(struct Env *e, uint8_t *binary)
 {
-	// Hints:
 	//  Load each program segment into virtual memory
 	//  at the address specified in the ELF segment header.
 	//  You should only load segments with ph->p_type == ELF_PROG_LOAD.
@@ -357,8 +356,6 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  assume for this function that no two segments will touch
 	//  the same virtual page.
 	//
-	//  You may find a function like region_alloc useful.
-	//
 	//  Loading the segments is much simpler if you can move data
 	//  directly into the virtual addresses stored in the ELF binary.
 	//  So which page directory should be in force during
@@ -366,9 +363,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	//
 	//  You must also do something with the program's entry point,
 	//  to make sure that the environment starts executing there.
-	//  What?  (See env_run() and env_pop_tf() below.)
 
-	// LAB 3: Your code here.
 	struct Elf *ELFENV = (struct Elf *)binary;
 	struct Proghdr *ph, *eph;
 	if (ELFENV->e_magic != ELF_MAGIC)

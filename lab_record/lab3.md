@@ -273,6 +273,24 @@ void env_run(struct Env *e)
 }
 ```
 
+结合后面实验的理解：(lab4)
+
+> 在`env_create`时调用的`load_icodes`使得所有的`env`均有分配自己的地址空间，并且分配了单独的大小为`PGSIZE`的栈，放在了对应的`env`的地址空间中的`USTACKTOP`。
+>
+> 然后发现在写`load_icodes`的时候没有初始化`tf`中的`esp`
+>
+> ```c
+> region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
+> e->env_tf.tf_esp = USTACKTOP;
+> ```
+>
+> 当每次`syscall`或者陷入`trap`的时候，都把`tf`丢到了这个栈里面。
+>
+> `trap`里面没有切到内核的页表，所以在处理正常需要返回的`trap`的时候，直接从这个`tf`返回去。当处理需要`sched`的`case`的时候，会在`env_run`的时候切到那个`env`的页表。
+>
+> - 若该`env`刚刚加载，`tf`是手动设置的。`iret`后栈就到了我们设置的`eip`与`esp`。
+> - 若该`env`是被`sched`走的话，`tf`是中断自己压的+`trap entry`时压的内容。最终`iret`会恢复`esp`的值，也就是恢复到陷入到`trap`之前。
+
 
 
 ### Handling Interrupts and Exceptions
