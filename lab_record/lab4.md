@@ -469,6 +469,8 @@ K>
    tf = &curenv->env_tf;
    ```
 
+c语言在90标准以后，结构体是直接通过`=`进行拷贝。
+
 在这里完全理解了当前的`trap`相关的结构。
 
 在`env_create`时调用的`load_icodes`使得所有的`env`均有分配自己的地址空间，并且分配了单独的大小为`PGSIZE`的栈，放在了对应的`env`的地址空间中的`USTACKTOP`。
@@ -497,4 +499,199 @@ e->env_tf.tf_esp = USTACKTOP;
 >
 > The JOS kernel currently does not allow applications to use the x86 processor's x87 floating-point unit (FPU), MMX instructions, or Streaming SIMD Extensions (SSE). Extend the `Env` structure to provide a save area for the processor's floating point state, and extend the context switching code to save and restore this state properly when switching from one environment to another. The `FXSAVE` and `FXRSTOR`instructions may be useful, but note that these are not in the old i386 user's manual because they were introduced in more recent processors. Write a user-level test program that does something cool with floating-point.
 
-System Calls for Environment Creation
+
+
+### System Calls for Environment Creation
+
+新的`syscall` ：
+
+- `sys_exofork`:
+
+  This system call creates a new environment with an almost blank slate: nothing is mapped in the user portion of its address space, and it is not runnable. The new environment will have the same register state as the parent environment at the time of the `sys_exofork` call. In the parent, `sys_exofork` will return the `envid_t` of the newly created environment (or a negative error code if the environment allocation failed). In the child, however, it will return 0. (Since the child starts out marked as not runnable, `sys_exofork` will not actually return in the child until the parent has explicitly allowed this by marking the child runnable using....)
+
+- `sys_env_set_status`:
+
+  Sets the status of a specified environment to `ENV_RUNNABLE` or `ENV_NOT_RUNNABLE`. This system call is typically used to mark a new environment ready to run, once its address space and register state has been fully initialized.
+
+- `sys_page_alloc`:
+
+  Allocates a page of physical memory and maps it at a given virtual address in a given environment's address space.
+
+- `sys_page_map`:
+
+  Copy a page mapping (*not* the contents of a page!) from one environment's address space to another, leaving a memory sharing arrangement in place so that the new and the old mappings both refer to the same page of physical memory.
+
+
+- `sys_page_unmap`:
+
+  Unmap a page mapped at a given virtual address in a given environment.
+
+####Exercise 7
+
+Implement the system calls described above in `kern/syscall.c`. You will need to use various functions in `kern/pmap.c` and `kern/env.c`, particularly `envid2env()`. For now, whenever you call `envid2env()`, pass 1 in the `checkperm`parameter. Be sure you check for any invalid system call arguments, returning `-E_INVAL` in that case. Test your JOS kernel with `user/dumbfork` and make sure it works before proceeding.
+
+实现`syscall`各个功能。
+
+##### 最先是`sys_exofork`
+
+```c
+// Allocate a new environment.
+// Returns envid of new environment, or < 0 on error.  Errors are:
+//	-E_NO_FREE_ENV if no free environment is available.
+//	-E_NO_MEM on memory exhaustion.
+static envid_t
+sys_exofork(void)
+{
+	// Create the new environment with env_alloc(), from kern/env.c.
+	// It should be left as env_alloc created it, except that
+	// status is set to ENV_NOT_RUNNABLE, and the register set is copied
+	// from the current environment -- but tweaked so sys_exofork
+	// will appear to return 0.
+	struct Env *child;
+	int ret = env_alloc(&child, curenv->env_id);
+	if (!ret)
+		return ret;
+	child->env_tf = curenv->env_tf;
+	child->env_status = ENV_NOT_RUNNABLE;
+	child->env_tf.tf_regs.reg_eax = 0;
+	return child->env_id;
+}
+```
+
+#####  然后是`sys_env_set_status`
+
+先看`envid2env`，若第三个参数`checkperm`设置了`1`，就会执行检查。要么就是当前执行的进程，要么是当前进程的子进程。
+
+```c
+	// Check that the calling environment has legitimate permission
+	// to manipulate the specified environment.
+	// If checkperm is set, the specified environment
+	// must be either the current environment
+	// or an immediate child of the current environment.
+	if (checkperm && e != curenv && e->env_parent_id != curenv->env_id)
+	{
+		*env_store = 0;
+		return -E_BAD_ENV;
+	}
+```
+
+利用`envid2env`实现功能
+
+```c
+static envid_t
+sys_exofork(void)
+{
+	// Create the new environment with env_alloc(), from kern/env.c.
+	// It should be left as env_alloc created it, except that
+	// status is set to ENV_NOT_RUNNABLE, and the register set is copied
+	// from the current environment -- but tweaked so sys_exofork
+	// will appear to return 0.
+	struct Env *child;
+	int ret = env_alloc(&child, curenv->env_id);
+	if (ret != 0)
+		return ret;
+	child->env_tf = curenv->env_tf;
+	child->env_status = ENV_NOT_RUNNABLE;
+	child->env_tf.tf_regs.reg_eax = 0;
+	return child->env_id;
+}
+```
+
+##### 再`sys_page_alloc`
+
+```c
+static int
+sys_page_alloc(envid_t envid, void *va, int perm)
+{
+	// Hint: This function is a wrapper around page_alloc() and
+	//   page_insert() from kern/pmap.c.
+	//   Most of the new code you write should be to check the
+	//   parameters for correctness.
+	//   If page_insert() fails, remember to free the page you
+	//   allocated!
+
+	struct Env *e;
+	int ret = envid2env(envid, &e, 1);
+	struct PageInfo *pp;
+	if (ret != 0)
+		return ret;
+	// check perm
+	if (perm & (~PTE_SYSCALL))
+		return -E_INVAL;
+	// check va
+	if ((uintptr_t)va >= UTOP || PGOFF(va))
+		return -E_INVAL;
+	// alloc a page
+	if ((pp = page_alloc(ALLOC_ZERO)) == NULL)
+		return -E_NO_MEM;
+	if ((ret = page_insert(e->env_pgdir, pp, va, perm)) != 0)
+	{
+		page_free(pp);
+		return ret;
+	}
+	return 0;
+}
+```
+
+##### `sys_page_map`
+
+```c
+static int
+sys_page_map(envid_t srcenvid, void *srcva,
+			 envid_t dstenvid, void *dstva, int perm)
+{
+	// Hint: This function is a wrapper around page_lookup() and
+	//   page_insert() from kern/pmap.c.
+	//   Again, most of the new code you write should be to check the
+	//   parameters for correctness.
+	//   Use the third argument to page_lookup() to
+	//   check the current permissions on the page.
+
+	struct Env *src, *dst;
+	int ret;
+	struct PageInfo *pp;
+	pte_t *pte;
+	if ((ret = envid2env(srcenvid, &src, 1)) != 0)
+		return ret;
+	if ((ret = envid2env(dstenvid, &dst, 1)) != 0)
+		return ret;
+	// check perm
+	if (perm & (~PTE_SYSCALL))
+		return -E_INVAL;
+	// check va
+	if ((uintptr_t)srcva >= UTOP || PGOFF(srcva) ||
+		(uintptr_t)dstva >= UTOP || PGOFF(dstva))
+		return -E_INVAL;
+	if ((pp = page_lookup(src->env_pgdir, srcva, &pte)) == NULL)
+		return -E_INVAL;
+	if ((perm & PTE_W) && !(*pte & PTE_W))
+		return -E_INVAL;
+	return page_insert(dst->env_pgdir, pp, dstva, perm);
+}
+```
+
+##### 最后的`sys_page_unmap`
+
+```c
+static int
+sys_page_unmap(envid_t envid, void *va)
+{
+	// Hint: This function is a wrapper around page_remove().
+	struct Env *e;
+	int ret = envid2env(envid, &e, 1);
+	if (ret != 0)
+		return ret;
+	if ((uintptr_t)va >= UTOP || PGOFF(va))
+		return -E_INVAL;
+	page_remove(e->env_pgdir, va);
+	return 0;
+}
+```
+
+
+
+> Challenge! Add the additional system calls necessary to *read* all of the vital state of an existing environment as well as set it up. Then implement a user mode program that forks off a child environment, runs it for a while (e.g., a few iterations of `sys_yield()`), then takes a complete snapshot or *checkpoint* of the child environment, runs the child for a while longer, and finally restores the child environment to the state it was in at the checkpoint and continues it from there. Thus, you are effectively "replaying" the execution of the child environment from an intermediate state. Make the child environment perform some interaction with the user using `sys_cgetc()` or `readline()` so that the user can view and mutate its internal state, and verify that with your checkpoint/restart you can give the child environment a case of selective amnesia, making it "forget" everything that happened beyond a certain point.
+
+
+
+## Part B: Copy-on-Write Fork
