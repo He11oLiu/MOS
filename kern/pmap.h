@@ -82,6 +82,7 @@ pa2page(physaddr_t pa)
 	return &pages[PGNUM(pa)];
 }
 
+/* page to kernal page address */
 static inline void*
 page2kva(struct PageInfo *pp)
 {

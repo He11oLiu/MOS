@@ -42,21 +42,35 @@ static const char * const error_string[MAXERROR] =
  * using specified putch function and associated pointer putdat.
  */
 static void
-printnum(void (*putch)(int, void*), void *putdat,
-	 unsigned long long num, unsigned base, int width, int padc)
+printnum_recu(void (*putch)(int, void*), void *putdat,
+	 unsigned long long num, unsigned base, int* width, int padc)
 {
 	// first recursively print all preceding (more significant) digits
 	if (num >= base) {
-		printnum(putch, putdat, num / base, base, width - 1, padc);
-	} else {
+		(*width)--;
+		printnum_recu(putch, putdat, num / base, base, width, padc);
+	} else if(padc != '-'){
 		// print any needed pad characters before first digit
-		while (--width > 0)
+		while (--(*width) > 0)
 			putch(padc, putdat);
 	}
-
 	// then print this (the least significant) digit
 	putch("0123456789abcdef"[num % base], putdat);
 }
+
+static void
+printnum(void (*putch)(int, void*), void *putdat,
+	 unsigned long long num, unsigned base, int width, int padc)
+{
+	int numlen = width;
+	printnum_recu(putch,putdat,num,base,&numlen,padc);
+	if(padc == '-'){
+		width -= numlen;
+		while(width-- > 0)
+			putch(' ', putdat);
+	}
+}
+
 
 // Get an unsigned int of various possible sizes from a varargs list,
 // depending on the lflag parameter.
@@ -114,6 +128,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		switch (ch = *(unsigned char *) fmt++) {
 
 		// flag to pad on the right
+		// "%-5d",1 -> "----1"
+		// in normal c "1    "
 		case '-':
 			padc = '-';
 			goto reswitch;
@@ -141,19 +157,25 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			}
 			goto process_precision;
 
+		// "%*d",5,1 -> "    1"
 		case '*':
 			precision = va_arg(ap, int);
 			goto process_precision;
 
+		//	not implement
 		case '.':
 			if (width < 0)
 				width = 0;
 			goto reswitch;
 
+		//	"%#x",0x123 -> "0x123"
 		case '#':
 			altflag = 1;
 			goto reswitch;
 
+		// 2 cases
+		// case 1: %5  
+		// case 2: %.5 NOT implement
 		process_precision:
 			if (width < 0)
 				width = precision, precision = -1;
@@ -185,7 +207,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			if ((p = va_arg(ap, char *)) == NULL)
 				p = "(null)";
 			if (width > 0 && padc != '-')
-				for (width -= strnlen(p, precision); width > 0; width--)
+				for (width -= strnlen(p, precision); 
+					 width > 0; 
+					 width--)
 					putch(padc, putdat);
 			for (; (ch = *p++) != '\0' && (precision < 0 || --precision >= 0); width--)
 				if (altflag && (ch < ' ' || ch > '~'))
@@ -215,9 +239,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
+			num = getuint(&ap,lflag);
+			base = 8;
+			goto number;
 			break;
 
 		// pointer
@@ -233,7 +257,23 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case 'x':
 			num = getuint(&ap, lflag);
 			base = 16;
+		// deal with number
 		number:
+			// add alt function
+			if(altflag){
+				switch(base){
+					// %#o	0..
+					case 8:
+					putch('0',putdat);
+					break;
+
+					// %#x 0x..
+					case 16:
+					putch('0',putdat);
+					putch('x',putdat);
+					break;
+				}
+			}
 			printnum(putch, putdat, num, base, width, padc);
 			break;
 
@@ -305,5 +345,3 @@ snprintf(char *buf, int n, const char *fmt, ...)
 
 	return rc;
 }
-
-
