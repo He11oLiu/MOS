@@ -17,6 +17,7 @@
 - [x] lab3 User Environments
 - [x] lab3 challenge: single step debug
 - [ ] lab3 challenge: sysenter & sysexit
-- [ ] lab4 Preemptive Multitasking
+- [x] lab4 Preemptive Multitasking
+- [ ] lab4 challenge
 
 
