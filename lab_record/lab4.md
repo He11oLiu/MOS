@@ -734,3 +734,121 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 
 
 ### Normal and Exception Stacks in User Environments
+
+用户的处理程序需要运行在一个单独的`Exception stacks`的栈里面。这个栈在`UXSTACKTOP`下面。
+
+#### Invoking the User Page Fault Handler
+
+#### Exercise 9
+
+Implement the code in `page_fault_handler` in `kern/trap.c` required to dispatch page faults to the user-mode handler. Be sure to take appropriate precautions when writing into the exception stack. (What happens if the user environment runs out of space on the exception stack?)
+
+```c
+	if (curenv->env_pgfault_upcall != NULL)
+	{
+		if (tf->tf_esp >= UXSTACKTOP-PGSIZE && tf->tf_esp < UXSTACKTOP)
+			utf = (struct UTrapframe *)(tf->tf_esp - sizeof(void *) - sizeof(struct UTrapframe));
+		else
+			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
+		user_mem_assert(curenv, (void *)utf, sizeof(struct UTrapframe), PTE_W);
+		utf->utf_fault_va = fault_va;
+		utf->utf_err = tf->tf_err;
+		utf->utf_regs = tf->tf_regs;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_esp = tf->tf_esp;
+		curenv->env_tf.tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+		curenv->env_tf.tf_esp = (uintptr_t)utf;
+		env_run(curenv);
+	}
+```
+
+#### Exercise 10
+
+Implement the `_pgfault_upcall` routine in `lib/pfentry.S`. The interesting part is returning to the original point in the user code that caused the page fault. You'll return directly there, without going back through the kernel. The hard part is simultaneously switching stacks and re-loading the EIP.
+
+这波操作很有技巧，因为
+
+- 现在正在用户空间
+- 保存的寄存器在目前的栈上，不能直接`jmp`走，否则要改变寄存器的值(中转)
+
+所以只能考虑`ret`。先将陷入`trap`的时候的栈压入一个`eip`，然后恢复正常寄存器，恢复`eflags`，切换栈到陷入`trap`的时候的栈，最后`ret`走。
+
+```assembly
+	movl 0x30(%esp), %eax	
+	subl $0x4, %eax
+	movl 0x28(%esp), %ebx
+	movl %ebx,(%eax)
+	movl %eax, 0x30(%esp)
+
+	// Restore the trap-time registers.  After you do this, you
+	// can no longer modify any general-purpose registers.
+	addl $0x8, %esp
+	popal
+
+	// Restore eflags from the stack.  After you do this, you can
+	// no longer use arithmetic operations or anything else that
+	// modifies eflags.
+	addl $0x4, %esp
+	popfl
+
+	// Switch back to the adjusted trap-time stack.
+	popl %esp
+
+	// Return to re-execute the instruction that faulted.
+	ret
+```
+
+#### Exercise 11
+
+Finish `set_pgfault_handler()` in `lib/pgfault.c`
+
+```c
+void set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
+{
+	int r;
+	if (_pgfault_handler == 0)
+	{
+		// First time through!
+		// Allocate an exception stack (one page of memory with its top
+		// at UXSTACKTOP)
+		if ((r = sys_page_alloc(thisenv->env_id, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P)))
+			panic("sys_page_alloc error : %e\n", r);
+		// Tell the kernel to call the assembly-language
+		// _pgfault_upcall routine when a page fault occurs.
+		if ((r = sys_env_set_pgfault_upcall(thisenv->env_id, _pgfault_upcall)))
+			panic("sys_env_set_pgfault_upcall error : %e\n", r);
+	}
+
+	// Save handler pointer for assembly to call.
+	_pgfault_handler = handler;
+}
+```
+
+这部分用户空间的错误处理的设计很强：
+
+- 只用注册一次入口，即使后面修改处理函数，内核的入口不改变。
+- 刚才说的恢复`trap`之前的设计
+- 单独的异常处理栈
+
+#### Make sure you understand why `user/faultalloc` and`user/faultallocbad` behave differently
+
+在`allocbad`中直接调用`sys_cputs`，这里面直接先对地址进行了`assert`
+
+```c
+static void
+sys_cputs(const char *s, size_t len)
+{
+	// Check that the user has permission to read memory [s, s+len).
+	// Destroy the environment if not.
+	user_mem_assert(curenv, (void *)s, len, PTE_U);
+	// Print the string supplied by the user.
+	cprintf("%.*s", len, s);
+}
+```
+
+而在`alloc`中调用的`cprintf`，`cprintf`中遇到`%s`会直接获取`strlen`，读取对应地址的时候会触发`pagefault`。
+
+
+
+> Challenge! Extend your kernel so that not only page faults, but *all*types of processor exceptions that code running in user space can generate, can be redirected to a user-mode exception handler. Write user-mode test programs to test user-mode handling of various exceptions such as divide-by-zero, general protection fault, and illegal opcode.
