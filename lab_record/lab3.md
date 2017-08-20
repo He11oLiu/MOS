@@ -284,7 +284,7 @@ void env_run(struct Env *e)
 > e->env_tf.tf_esp = USTACKTOP;
 > ```
 >
-> 当每次`syscall`或者陷入`trap`的时候，都把`tf`丢到了这个栈里面。
+> 当每次`syscall`或者陷入`trap`的时候，~~都把`tf`丢到了这个栈里面。~~在从用户态转换为内核态的时候，处理器会自己找`TSS`中的`esp0`与`ss0`并切换，`tf`在这里面。
 >
 > `trap`里面没有切到内核的页表，所以在处理正常需要返回的`trap`的时候，直接从这个`tf`返回去。当处理需要`sched`的`case`的时候，会在`env_run`的时候切到那个`env`的页表。
 >

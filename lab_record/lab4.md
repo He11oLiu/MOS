@@ -482,7 +482,7 @@ region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
 e->env_tf.tf_esp = USTACKTOP;
 ```
 
-当每次`syscall`或者陷入`trap`的时候，都把`tf`丢到了这个栈里面。
+当每次`syscall`或者陷入`trap`的时候，~~都把`tf`丢到了这个栈里面。~~在从用户态转换为内核态的时候，处理器会自己找`TSS`中的`esp0`与`ss0`并切换，`tf`在这里面。
 
 `trap`里面没有切到内核的页表，所以在处理正常需要返回的`trap`的时候，直接从这个`tf`返回去。当处理需要`sched`的`case`的时候，会在`env_run`的时候切到那个`env`的页表。
 
@@ -695,3 +695,42 @@ sys_page_unmap(envid_t envid, void *va)
 
 
 ## Part B: Copy-on-Write Fork
+
+> For this reason, later versions of Unix took advantage of virtual memory hardware to allow the parent and child to *share* the memory mapped into their respective address spaces until one of the processes actually modifies it. This technique is known as *copy-on-write*.
+
+> `fork()` the kernel would copy the address space *mappings*from the parent to the child instead of the contents of the mapped pages, and at the same time mark the now-shared pages read-only
+
+当`fork`的时候，只复制页表，并设置这些页为`read only`。当需要向这里面写入内容的时候，导致`page fault`，这时候再分配一个专属的空页出来给当前的`env`。
+
+这种`copy-on-write`的思路优化了大部分`fork`后更着`exec`的`scenario`。
+
+### User-level page fault handling
+
+用户空间的`page fault handling` ，会比直接在`kernel`实现，保证了`kernel`的简洁性，并且保证了出现的问题不会太有杀伤力，直接导致`kernel`崩溃。
+
+### Setting the Page Fault Handler
+
+如何在用户空间实现？这就需要`kernel`知道每一个`env`的自己的`pagefault`处理函数，出现`pagefault`的时候去调用这个处理函数即可。
+
+### Exercise 8
+
+Implement the `sys_env_set_pgfault_upcall` system call. Be sure to enable permission checking when looking up the environment ID of the target environment, since this is a "dangerous" system call.
+
+这个和之前写的`syscall`类似，同样是要检查`envid`能否被获取，否则恶意程序就可以直接通过修改`pf`的`entry`来控制程序。
+
+```c
+static int
+sys_env_set_pgfault_upcall(envid_t envid, void *func)
+{
+	struct Env *e;
+	int ret = envid2env(envid, &e, 1);
+	if (ret != 0)
+		return ret;
+	e->env_pgfault_upcall = func;
+	return 0;
+}
+```
+
+
+
+### Normal and Exception Stacks in User Environments
