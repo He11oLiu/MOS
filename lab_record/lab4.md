@@ -978,3 +978,179 @@ fork(void)
 >
 > Alternatively, you can boot your kernel on real hardware and *really* benchmark your code. See the `RDTSC` (read time-stamp counter) instruction, defined in the IA32 manual, which counts the number of clock cycles that have elapsed since the last processor reset. QEMU doesn't emulate this instruction faithfully (it can either count the number of virtual instructions executed or use the host TSC, neither of which reflects the number of cycles a real CPU would require).
 
+
+
+## Part C: Preemptive Multitasking and Inter-Process communication (IPC)
+
+#### Exercise 13
+
+Modify `kern/trapentry.S` and `kern/trap.c` to initialize the appropriate entries in the IDT and provide handlers for IRQs 0 through 15. Then modify the code in `env_alloc()` in `kern/env.c` to ensure that user environments are always run with interrupts enabled.
+
+由于上次本来就使用的是`IDT table`来实现，所以一口气初始化到`48`，这次的`32 到 47`就不需要重新写了。
+
+初始化`env_alloc`的时候
+
+```c
+	// Enable interrupts while in user mode.
+	e->env_tf.tf_eflags |= FL_IF;
+```
+
+ 
+
+#### Handling Clock Interrupts
+
+`lapic_init` and `pic_init`已经熟悉了初始化各个中断的代码。
+
+#### Exercise 14
+
+Modify the kernel's `trap_dispatch()` function so that it calls `sched_yield()` to find and run a different environment whenever a clock interrupt takes place.
+
+```c
+	case IRQ_OFFSET + IRQ_TIMER:
+		lapic_eoi();
+		sched_yield();
+		return;
+```
+
+### Inter-Process communication (IPC)
+
+> The "messages" that user environments can send to each other using JOS's IPC mechanism consist of two components: a single 32-bit value, and optionally a single page mapping. Allowing environments to pass page mappings in messages provides an efficient way to transfer more data than will fit into a single 32-bit integer, and also allows environments to set up shared memory arrangements easily.
+
+#### Exercise 15
+
+Implement `sys_ipc_recv` and `sys_ipc_try_send` in `kern/syscall.c`. Read the comments on both before implementing them, since they have to work together. When you call `envid2env` in these routines, you should set the `checkperm` flag to 0, meaning that any environment is allowed to send IPC messages to any other environment, and the kernel does no special permission checking other than verifying that the target envid is valid.
+
+Then implement the `ipc_recv` and `ipc_send` functions in `lib/ipc.c`.
+
+Use the `user/pingpong` and `user/primes` functions to test your IPC mechanism. `user/primes` will generate for each prime number a new environment until JOS runs out of environments. You might find it interesting to read `user/primes.c` to see all the forking and IPC going on behind the scenes.
+
+实现两个`syscall`
+
+```c
+static int
+sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+{
+	struct Env *e;
+	int ret = envid2env(envid, &e, 0);
+	struct PageInfo *pp;
+	int sent = 0;
+	pte_t *pte;
+	//	-E_BAD_ENV if environment envid doesn't currently exist.
+	if (ret != 0)
+		return ret;
+	//	-E_IPC_NOT_RECV if envid is not currently blocked in sys_ipc_recv,
+	//		or another environment managed to send first.
+	if (!e->env_ipc_recving)
+		return -E_IPC_NOT_RECV;
+	// If srcva < UTOP, then also send page currently mapped at 'srcva',
+	// so that receiver gets a duplicate mapping of the same page.
+	if (srcva < (void *)UTOP)
+	{
+		//	-E_INVAL if srcva < UTOP but srcva is not page-aligned.
+		if (PGOFF(srcva))
+			return -E_INVAL;
+		//	-E_INVAL if srcva < UTOP and perm is inappropriate
+		if (perm & (~PTE_SYSCALL))
+			return -E_INVAL;
+		//	-E_INVAL if srcva < UTOP but srcva is not mapped in the caller's
+		//		address space.
+		if ((pp = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL)
+			return -E_INVAL;
+		//	-E_INVAL if (perm & PTE_W), but srcva is read-only in the
+		//		current environment's address space.
+		if ((perm & PTE_W) && !(*pte & PTE_W))
+			return -E_INVAL;
+		// only map the page if dstva is valid
+		if (e->env_ipc_dstva < (void *)UTOP)
+		{
+			//	-E_NO_MEM if there's not enough memory to map srcva in envid's
+			//		address space.
+			if ((ret = page_insert(e->env_pgdir, pp, e->env_ipc_dstva, perm)) != 0)
+				return ret;
+			// mark that page has been sent
+			sent = 1;
+		}
+	}
+	//    env_ipc_recving is set to 0 to block future sends;
+	e->env_ipc_recving = 0;
+	//    env_ipc_from is set to the sending envid;
+	e->env_ipc_from = curenv->env_id;
+	//    env_ipc_value is set to the 'value' parameter;
+	e->env_ipc_value = value;
+	//    env_ipc_perm is set to 'perm' if a page was transferred, 0 otherwise.
+	e->env_ipc_perm = sent ? perm : 0;
+	// The target environment is marked runnable again, returning 0
+	// from the paused sys_ipc_recv system call.
+	e->env_status = ENV_RUNNABLE;
+	e->env_tf.tf_regs.reg_eax = 0;
+	return 0;
+}
+
+static int
+sys_ipc_recv(void *dstva)
+{
+	//	-E_INVAL if dstva < UTOP but dstva is not page-aligned.
+	if (dstva < (void *)UTOP && PGOFF(dstva))
+		return -E_INVAL;
+	// sys_ipc_try_send will decide whether to send a page or not
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_ipc_recving = 1;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
+	return 0;
+}
+```
+
+这里在`recv`的时候，没有直接显示的表示不接受页，而是留给`try_sent`判断是否需要映射一个页过来。
+
+在用户空间打包这两个系统调用就很简单了
+
+```c
+int32_t
+ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
+{
+	int ret;
+	// if pg = NULL then set pg to UTOP and try_sent won't send a page
+	if (pg == NULL)
+		pg = (void *)UTOP;
+	if ((ret = sys_ipc_recv(pg)) != 0)
+	{
+		if (from_env_store)
+			*from_env_store = 0;
+		if (perm_store)
+			*perm_store = 0;
+		return ret;
+	}
+	if (perm_store)
+		*perm_store = thisenv->env_ipc_perm;
+	if (from_env_store)
+		*from_env_store = thisenv->env_ipc_from;
+	return thisenv->env_ipc_value;
+}
+
+
+void ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
+{
+	int ret;
+	//   If 'pg' is null, pass sys_ipc_try_send a value that it will understand
+	//   as meaning "no page".
+	if (pg == NULL)
+		pg = (void *)UTOP;
+	while ((ret = sys_ipc_try_send(to_env, val, pg, perm)) != 0)
+	{
+		if (ret != -E_IPC_NOT_RECV)
+			panic("sys_ipc_try_send fail: %e", ret);
+		sys_yield();
+	}
+}
+```
+
+
+
+> Challenge! Why does `ipc_send` have to loop? Change the system call interface so it doesn't have to. Make sure you can handle multiple environments trying to send to one environment at the same time.
+>
+> Challenge! The prime sieve is only one neat use of message passing between a large number of concurrent programs. Read C. A. R. Hoare, ``Communicating Sequential Processes,'' *Communications of the ACM* 21(8) (August 1978), 666-667, and implement the matrix multiplication example.
+>
+> Challenge! One of the most impressive examples of the power of message passing is Doug McIlroy's power series calculator, described in [M. Douglas McIlroy, ``Squinting at Power Series,'' *Software--Practice and Experience*, 20(7) (July 1990), 661-683](http://plan9.bell-labs.com/who/rsc/thread/squint.pdf). Implement his power series calculator and compute the power series for *sin*(*x*+*x*^3).
+>
+> Challenge! Make JOS's IPC mechanism more efficient by applying some of the techniques from Liedtke's paper, [Improving IPC by Kernel Design](http://dl.acm.org/citation.cfm?id=168633), or any other tricks you may think of. Feel free to modify the kernel's system call API for this purpose, as long as your code is backwards compatible with what our grading scripts expect.

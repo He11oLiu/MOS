@@ -172,7 +172,6 @@ static void
 trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
-	// LAB 3: Your code here.
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -186,7 +185,6 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
-	// LAB 4: Your code here.
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	// print_trapframe(tf);
@@ -210,6 +208,10 @@ trap_dispatch(struct Trapframe *tf)
 			tf->tf_regs.reg_edi,
 			tf->tf_regs.reg_esi);
 		break;
+	case IRQ_OFFSET + IRQ_TIMER:
+		lapic_eoi();
+		sched_yield();
+		return;
 	default:
 		cprintf("trap no=%d\n", tf->tf_trapno);
 		env_destroy(curenv);
@@ -321,7 +323,7 @@ void page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 	if (curenv->env_pgfault_upcall != NULL)
 	{
-		if (tf->tf_esp >= UXSTACKTOP-PGSIZE && tf->tf_esp < UXSTACKTOP)
+		if (tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP)
 			utf = (struct UTrapframe *)(tf->tf_esp - sizeof(void *) - sizeof(struct UTrapframe));
 		else
 			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
