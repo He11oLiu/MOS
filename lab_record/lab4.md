@@ -849,6 +849,132 @@ sys_cputs(const char *s, size_t len)
 
 而在`alloc`中调用的`cprintf`，`cprintf`中遇到`%s`会直接获取`strlen`，读取对应地址的时候会触发`pagefault`。
 
-
-
 > Challenge! Extend your kernel so that not only page faults, but *all*types of processor exceptions that code running in user space can generate, can be redirected to a user-mode exception handler. Write user-mode test programs to test user-mode handling of various exceptions such as divide-by-zero, general protection fault, and illegal opcode.
+
+
+
+### Implementing Copy-on-Write Fork
+
+#### Exercise 12
+
+Implement `fork`, `duppage` and `pgfault` in `lib/fork.c`.
+
+首先先写了`pgfault`，在这里又迷糊了一下。当前的`JOS`仍然`va = la`，没有做偏移
+
+```c
+	// 0x18 - user code segment
+	[GD_UT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 3),
+```
+
+所以直接从`fault_va`可以转到`la`，然后去`uvpd`查找对应的`pageinfo`
+
+```c
+static void
+pgfault(struct UTrapframe *utf)
+{
+	void *addr = (void *)utf->utf_fault_va;
+	uint32_t err = utf->utf_err;
+	int r;
+	// Check that the faulting access was (1) a write, and (2) to a
+	// copy-on-write page.  If not, panic.
+	if (!((err & FEC_WR) && (uvpd[PDX(addr)] & PTE_P) &&
+		  (uvpt[PGNUM(addr)] & (PTE_P | PTE_COW)) == (PTE_P | PTE_COW)))
+		panic("Page fault\n");
+	// Allocate a new page, map it at a temporary location (PFTEMP)
+	addr = ROUNDDOWN(addr, PGSIZE);
+	if ((r = sys_page_alloc(0, PFTEMP, PTE_P | PTE_U | PTE_W)) < 0)
+		panic("sys_page_alloc fault: %e", r);
+	// copy the data from the old page to the new page
+	memmove(PFTEMP, addr, PGSIZE);
+	// then move the new page to the old page's address.
+	if ((r = sys_page_map(0, PFTEMP, 0, addr, PTE_P | PTE_U | PTE_W)) < 0)
+		panic("sys_page_map fault: %e", r);
+	// unmap the tmp addr
+	if ((r = sys_page_unmap(0, PFTEMP)) < 0)
+		panic("sys_page_unmap fault: %e", r);
+}
+```
+
+然后是`duppage`
+
+```c
+static int
+duppage(envid_t envid, unsigned pn)
+{
+	int r;
+	void *addr = (void *)(pn * PGSIZE);
+	// If the page is writable or copy-on-write
+	if (uvpt[pn] & (PTE_W | PTE_COW))
+	{
+		// the new mapping must be created copy-on-write
+		if ((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U | PTE_P | PTE_COW) < 0))
+			panic("sys_page_map fault: %e\n", r);
+		// our mapping must be marked copy-on-write as well.
+		if ((r = sys_page_map((envid_t)0, addr, 0, addr, PTE_U | PTE_P | PTE_COW) < 0))
+			panic("sys_page_map fault: %e\n", r);
+	}
+	else
+	{
+		if ((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U | PTE_P)) < 0)
+			panic("sys_page_map fault: %e\n", r);
+	}
+	return 0;
+}
+```
+
+最后是`fork`
+
+```c
+envid_t
+fork(void)
+{
+	envid_t envid;
+	uintptr_t addr;
+	int r;
+	// set parent's page fault handler
+	set_pgfault_handler(pgfault);
+	if ((envid = sys_exofork()) < 0)
+		panic("sys_exofork fail: %e", envid);
+	if (envid == 0)
+	{
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+	// Copy our address space(to USTACKTOP not UTOP as we have to
+	// allocate a new User Exception Stack for child
+	for (addr = UTEXT; addr < USTACKTOP; addr += PGSIZE)
+	{	
+		if ((uvpd[PDX(addr)] & PTE_P) &&
+			(uvpt[PGNUM(addr)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U))
+			duppage(envid, addr/PGSIZE);
+	}
+	// Allocate a new User Exception Stack for child
+	if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P)) < 0)
+		panic("sys_page_alloc fail: %e\n", r);
+	// set child env's pgfault upcall
+	if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0)
+		panic("sys_env_set_pgfault_upcall fail: %e\n", r);
+	// set child env's status to runnable
+	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
+		panic("sys_env_set_status fail: %e\n", r);
+	// cprintf("Parent finished child %08x\n",envid);
+	return envid;
+}
+```
+
+中间`duppage`的第二个参数是`pn`不是`la`或`va`，导致写的时候查了半天`bug`...
+
+还有设置`child env`的`pgfault upcall`感觉不是很优雅，需要又把`pgfault`的`entry`拿来用。
+
+可能在`pgfault.c`再提供一个设置`envid`的`pagefaulthandler`比较好。
+
+> Challenge! Implement a shared-memory `fork()` called `sfork()`. This version should have the parent and child *share* all their memory pages (so writes in one environment appear in the other) except for pages in the stack area, which should be treated in the usual copy-on-write manner. Modify `user/forktree.c` to use `sfork()` instead of regular `fork()`. Also, once you have finished implementing IPC in part C, use your `sfork()` to run `user/pingpongs`. You will have to find a new way to provide the functionality of the global `thisenv` pointer.
+>
+> Challenge! Your implementation of `fork` makes a huge number of system calls. On the x86, switching into the kernel using interrupts has non-trivial cost. Augment the system call interface so that it is possible to send a batch of system calls at once. Then change `fork` to use this interface.
+>
+> How much faster is your new `fork`?
+>
+> You can answer this (roughly) by using analytical arguments to estimate how much of an improvement batching system calls will make to the performance of your `fork`: How expensive is an `int 0x30` instruction? How many times do you execute `int 0x30` in your `fork`? Is accessing the `TSS` stack switch also expensive? And so on...
+>
+> Alternatively, you can boot your kernel on real hardware and *really* benchmark your code. See the `RDTSC` (read time-stamp counter) instruction, defined in the IA32 manual, which counts the number of clock cycles that have elapsed since the last processor reset. QEMU doesn't emulate this instruction faithfully (it can either count the number of virtual instructions executed or use the host TSC, neither of which reflects the number of cycles a real CPU would require).
+
