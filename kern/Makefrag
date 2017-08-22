@@ -78,21 +78,25 @@ KERN_BINFILES +=	user/idle \
 			user/primes
 # Binary files for LAB5
 KERN_BINFILES +=	user/faultio\
-	      		user/spawnfaultio\
-	      		user/testfile \
-			user/spawnhello \
-			user/icode \
-			fs/fs
+	      			user/spawnfaultio\
+	      			user/testfile \
+					user/spawnhello \
+					user/icode \
+					fs/fs
 
 # Binary files for LAB5
 KERN_BINFILES +=	user/testpteshare \
-			user/testfdsharing \
-			user/testpipe \
-			user/testpiperace \
-			user/testpiperace2 \
-			user/primespipe \
-			user/testkbd \
-			user/testshell
+					user/testfdsharing \
+					user/testpipe \
+					user/testpiperace \
+					user/testpiperace2 \
+					user/primespipe \
+					user/testkbd \
+					user/testshell	\
+					user/sh 
+
+# My Own Binary files
+KERN_BINFILES +=	user/msh
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
