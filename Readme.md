@@ -19,5 +19,6 @@
 - [ ] lab3 challenge: sysenter & sysexit
 - [x] lab4 Preemptive Multitasking
 - [ ] lab4 challenge
-
+- [x] Lab 5: File system, Spawn and Shell
+- [ ] lab5 challenge
 
