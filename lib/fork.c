@@ -60,9 +60,13 @@ duppage(envid_t envid, unsigned pn)
 
 	// cprintf("dup start pn%#x %#x\n",pn,uvpt[pn]);
 	// If the page is writable or copy-on-write
-	if (uvpt[pn] & (PTE_W | PTE_COW))
+	if (uvpt[pn] & PTE_SHARE)
 	{
-
+		if ((r = sys_page_map((envid_t)0, addr, envid, addr, uvpt[pn] & PTE_SYSCALL)) < 0)
+			panic("sys_page_map: %e\n", r);
+	}
+	else if (uvpt[pn] & (PTE_W | PTE_COW))
+	{
 		// cprintf("writeable\n");
 		// the new mapping must be created copy-on-write
 		if ((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U | PTE_P | PTE_COW) < 0))
@@ -114,10 +118,10 @@ fork(void)
 	// Copy our address space(to USTACKTOP not UTOP as we have to
 	// allocate a new User Exception Stack for child
 	for (addr = UTEXT; addr < USTACKTOP; addr += PGSIZE)
-	{	
+	{
 		if ((uvpd[PDX(addr)] & PTE_P) &&
 			(uvpt[PGNUM(addr)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U))
-			duppage(envid, addr/PGSIZE);
+			duppage(envid, addr / PGSIZE);
 	}
 	// Allocate a new User Exception Stack for child
 	if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P)) < 0)

@@ -10,7 +10,6 @@ umain(int argc, char **argv)
 	int nsecs = 1;
 	int secno = 0;
 	int diskno = 1;
-
 	if (read_eflags() & FL_IOPL_3)
 		cprintf("eflags wrong\n");
 
@@ -18,5 +17,5 @@ umain(int argc, char **argv)
 	// fault, because user-level code shouldn't be able to use the io space.
 	outb(0x1F6, 0xE0 | (1<<4));
 
-        cprintf("%s: made it here --- bug\n");
+	cprintf("%s: made it here --- bug\n");
 }

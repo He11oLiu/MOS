@@ -67,6 +67,7 @@ void i386_init(void)
 	// Should not be necessary - drains keyboard because interrupt has given up.
 	kbd_intr();
 
+	cprintf("Init finish! Sched start...\n");
 	// Schedule and run the first user environment!
 	sched_yield();
 }

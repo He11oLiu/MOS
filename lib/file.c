@@ -35,15 +35,14 @@ static int devfile_stat(struct Fd *fd, struct Stat *stat);
 static int devfile_trunc(struct Fd *fd, off_t newsize);
 
 struct Dev devfile =
-{
-	.dev_id =	'f',
-	.dev_name =	"file",
-	.dev_read =	devfile_read,
-	.dev_close =	devfile_flush,
-	.dev_stat =	devfile_stat,
-	.dev_write =	devfile_write,
-	.dev_trunc =	devfile_trunc
-};
+	{
+		.dev_id = 'f',
+		.dev_name = "file",
+		.dev_read = devfile_read,
+		.dev_close = devfile_flush,
+		.dev_stat = devfile_stat,
+		.dev_write = devfile_write,
+		.dev_trunc = devfile_trunc};
 
 // Open a file (or directory).
 //
@@ -51,8 +50,7 @@ struct Dev devfile =
 // 	The file descriptor index on success
 // 	-E_BAD_PATH if the path is too long (>= MAXPATHLEN)
 // 	< 0 for other errors.
-int
-open(const char *path, int mode)
+int open(const char *path, int mode)
 {
 	// Find an unused file descriptor page using fd_alloc.
 	// Then send a file-open request to the file server.
@@ -80,7 +78,8 @@ open(const char *path, int mode)
 	strcpy(fsipcbuf.open.req_path, path);
 	fsipcbuf.open.req_omode = mode;
 
-	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+	if ((r = fsipc(FSREQ_OPEN, fd)) < 0)
+	{
 		fd_close(fd, 0);
 		return r;
 	}
@@ -127,7 +126,6 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	return r;
 }
 
-
 // Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
 //
 // Returns:
@@ -140,8 +138,16 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// careful: fsipcbuf.write.req_buf is only so large, but
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
-	// LAB 5: Your code here
-	panic("devfile_write not implemented");
+	int r;
+
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = n;
+	memmove(fsipcbuf.write.req_buf, buf, n);
+	if ((r = fsipc(FSREQ_WRITE, NULL)))
+		return r;
+	assert(r <= n);
+	assert(r <= PGSIZE);
+	return r;
 }
 
 static int
@@ -167,14 +173,11 @@ devfile_trunc(struct Fd *fd, off_t newsize)
 	return fsipc(FSREQ_SET_SIZE, NULL);
 }
 
-
 // Synchronize disk with buffer cache
-int
-sync(void)
+int sync(void)
 {
 	// Ask the file server to update the disk
 	// by writing any dirty blocks in the buffer cache.
 
 	return fsipc(FSREQ_SYNC, NULL);
 }
-
