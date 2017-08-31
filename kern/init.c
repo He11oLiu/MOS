@@ -13,8 +13,13 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <kern/rwlock.h>
 
 static void boot_aps(void);
+
+// test reader-writer lock
+dumbrwlock lock1;
+dumbrwlock lock2;
 
 void i386_init(void)
 {
@@ -29,7 +34,7 @@ void i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
+	// cprintf("6828 decimal is %o octal!\n", 6828);
 	// cprintf("123 in hex is %#x\n",123);
 	// cprintf("123 %%5  [%5d]\r\n",123);
 	// cprintf("123 %%-5 [%-5d]\r\n",123);
@@ -50,9 +55,24 @@ void i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	lock_kernel();
+
+	// test reader-writer lock
+	rw_initlock(&lock1);
+	rw_initlock(&lock2);
+
+	dumb_wrlock(&lock1);
+	cprintf("[rw] CPU %d gain writer lock1\n", cpunum());
+	dumb_rdlock(&lock2);
+	cprintf("[rw] CPU %d gain reader lock2\n", cpunum());
+
 	// Starting non-boot CPUs
 	boot_aps();
 
+	cprintf("[rw] CPU %d going to release writer lock1\n", cpunum());
+	dumb_wrunlock(&lock1);	
+	cprintf("[rw] CPU %d going to release reader lock2\n", cpunum());
+	dumb_rdunlock(&lock2);
+	
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
@@ -110,18 +130,32 @@ void mp_main(void)
 {
 	// We are in high EIP now, safe to switch to kern_pgdir
 	lcr3(PADDR(kern_pgdir));
-	cprintf("SMP: CPU %d starting\n", cpunum());
+	cprintf("[MP] CPU %d starting\n", cpunum());
 
 	lapic_init();
 	env_init_percpu();
 	trap_init_percpu();
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
+	// reader-writer lock test
+	dumb_rdlock(&lock1);
+	cprintf("[rw] %d l1\n", cpunum());
+	asm volatile("pause");
+	dumb_rdunlock(&lock1);
+	cprintf("[rw] %d unl1\n", cpunum());
+
+	dumb_wrlock(&lock2);
+	cprintf("[rw] %d l2\n", cpunum());
+	asm volatile("pause");
+	cprintf("[rw] %d unl2\n", cpunum());
+	dumb_wrunlock(&lock2);
+
 	// Now that we have finished some basic setup, call sched_yield()
 	// to start running processes on this CPU.  But make sure that
 	// only one CPU can enter the scheduler at a time!
 	//
 	lock_kernel();
+	cprintf("[MP] CPU %d sched\n", cpunum());
 	sched_yield();
 }
 

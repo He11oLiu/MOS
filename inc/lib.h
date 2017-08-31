@@ -20,6 +20,7 @@
 #include <inc/fs.h>
 #include <inc/fd.h>
 #include <inc/args.h>
+#include <inc/spinlock.h>
 
 #define USED(x)		(void)(x)
 

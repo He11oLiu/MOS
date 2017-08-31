@@ -28,6 +28,10 @@ LIB_SRCFILES :=		$(LIB_SRCFILES) \
 			lib/pipe.c \
 			lib/wait.c
 
+# locks
+LIB_SRCFILES :=		$(LIB_SRCFILES) \
+			lib/spinlock.c 
+
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
 LIB_OBJFILES := $(patsubst lib/%.S, $(OBJDIR)/lib/%.o, $(LIB_OBJFILES))
 

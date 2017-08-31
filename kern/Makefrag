@@ -36,7 +36,8 @@ KERN_SRCFILES :=	kern/entry.S \
 KERN_SRCFILES +=	kern/mpentry.S \
 			kern/mpconfig.c \
 			kern/lapic.c \
-			kern/spinlock.c
+			kern/spinlock.c	\
+			kern/rwlock.c
 
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
@@ -96,7 +97,8 @@ KERN_BINFILES +=	user/testpteshare \
 					user/sh 
 
 # My Own Binary files
-KERN_BINFILES +=	user/msh
+KERN_BINFILES +=	user/msh		\
+					user/rwlocktest
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
