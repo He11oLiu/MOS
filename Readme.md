@@ -22,3 +22,19 @@
 - [x] Lab 5: File system, Spawn and Shell
 - [ ] lab5 challenge
 
+
+
+
+## 新特性
+
+- 支持原子操作
+- 支持读写锁
+
+
+
+
+## 计划完成的特性
+
+- PRWLock
+- MSH
+- GUI接口
