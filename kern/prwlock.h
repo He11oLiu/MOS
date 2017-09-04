@@ -6,6 +6,9 @@
 #include <inc/atomic.h>
 #include <kern/cpu.h>
 
+#define MAXPRWLock 100
+#define TESTPRW
+
 enum lock_status
 {
     FREE = 0,
@@ -28,6 +31,13 @@ typedef struct prwlock
     atomic_t version;
 } prwlock;
 
+extern unsigned int prwlocknum;
+extern prwlock *locklist[MAXPRWLock];
+
+#ifdef TESTPRW
+extern prwlock lock1;
+#endif
+
 
 void prw_initlock(prwlock *rwlk);
 void prw_wrlock(prwlock *rwlk);
@@ -35,6 +45,5 @@ void prw_wrunlock(prwlock *rwlk);
 void prw_rdlock(prwlock *rwlk);
 void prw_rdunlock(prwlock *rwlk);
 void prw_sched();
-void IPI_report();
 
 #endif /* JOS_INC_PRWLOCK_H */

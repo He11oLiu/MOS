@@ -13,6 +13,7 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <kern/prwlock.h>
 
 static struct Taskstate ts;
 
@@ -200,8 +201,11 @@ trap_dispatch(struct Trapframe *tf)
 	case T_PGFLT:
 		page_fault_handler(tf);
 		break;
-	case T_PRWIPI:
+	case PRWIPI:
 		prw_ipi_report(tf);
+		break;
+	case DEBUGPRW:
+		prw_debug(tf);
 		break;
 	case T_SYSCALL:
 		tf->tf_regs.reg_eax = syscall(
@@ -362,5 +366,33 @@ void page_fault_handler(struct Trapframe *tf)
 
 void prw_ipi_report(struct Trapframe *tf)
 {
-	cprintf("%d in ipi report\n",cpunum());
+	int lockversion, i;
+	struct percpu_prwlock *st;
+	cprintf("In IPI_report CPU %d\n", cpunum());
+	for (i = 0; i < prwlocknum; i++)
+	{
+		st = &locklist[i]->lockinfo[cpunum()];
+		if (st->reader != PASSIVE)
+		{
+			lockversion = atomic_read(&locklist[i]->version);
+			atomic_set(&st->version, lockversion);
+		}
+	}
+}
+
+void prw_debug(struct Trapframe *tf)
+{
+	int needlock = 0;
+	cprintf("====CPU %d in prw debug====\n",cpunum());
+	if(kernel_lock.cpu == thiscpu && kernel_lock.locked == 1)
+	{
+		unlock_kernel();
+		needlock = 1;
+	}
+	prw_wrlock(&lock1);
+	cprintf("====%d gain lock1====\n",cpunum());
+	prw_wrunlock(&lock1);
+	cprintf("====%d release lock1====\n",cpunum());
+	if(needlock)
+		lock_kernel();
 }

@@ -4,6 +4,7 @@
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/monitor.h>
+#include <kern/prwlock.h>
 
 void sched_halt(void);
 
@@ -12,6 +13,13 @@ void sched_yield(void)
 {
 	struct Env *idle;
 	envid_t i;
+	int j;
+
+	// Implement PRWLock
+	if (prwlocknum != 0)
+		for (j = 0; j < prwlocknum; j++)
+			prw_sched(locklist[j]);
+
 	// Implement simple round-robin scheduling.
 	//
 	// Search through 'envs' for an ENV_RUNNABLE environment in

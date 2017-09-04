@@ -18,9 +18,13 @@
 
 static void boot_aps(void);
 
+#define TESTPRW
+
+#ifdef TESTRW
 // test reader-writer lock
 dumbrwlock lock1;
 dumbrwlock lock2;
+#endif
 
 void i386_init(void)
 {
@@ -74,11 +78,11 @@ void i386_init(void)
 
 #ifdef TESTRW
 	cprintf("[rw] CPU %d going to release writer lock1\n", cpunum());
-	dumb_wrunlock(&lock1);	
+	dumb_wrunlock(&lock1);
 	cprintf("[rw] CPU %d going to release reader lock2\n", cpunum());
 	dumb_rdunlock(&lock2);
 #endif
-	
+
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
@@ -93,12 +97,22 @@ void i386_init(void)
 	// Should not be necessary - drains keyboard because interrupt has given up.
 	kbd_intr();
 
+#ifdef TESTPRW
+	unlock_kernel();
+	prw_initlock(&lock1);
+	prw_wrlock(&lock1);
+	prw_wrunlock(&lock1);
+	prw_rdlock(&lock1);
+	cprintf("====%d Gain Reader Lock====\n", cpunum());
+	lapic_ipi_dest(3, DEBUGPRW);
+	for (int i = 0; i < 10000; i++)
+		asm volatile("pause");
+	prw_rdunlock(&lock1);
+	cprintf("====%d release Reader Lock====\n", cpunum());
+	lock_kernel();
+#endif 
+
 	cprintf("Init finish! Sched start...\n");
-
-	// test ipi
-	// lapic_ipi_others(T_PRWIPI);
-	lapic_ipi_dest(3,T_PRWIPI);
-
 	// Schedule and run the first user environment!
 	sched_yield();
 }

@@ -411,7 +411,7 @@ void prw_ipi_report(struct Trapframe *tf)
 在`trap_dispatch`中加入对这个中断的分发
 
 ```c
-	case T_PRWIPI:
+	case PRWIPI:
 		prw_ipi_report(tf);
 		break;
 ```
@@ -419,7 +419,7 @@ void prw_ipi_report(struct Trapframe *tf)
 最后在`init`的时候用`bsp`发送`IPI`给所有其他核心
 
 ```c
-	lapic_ipi(T_PRWIPI);
+	lapic_ipi(PRWIPI);
 ```
 
 设置`QEMU`模拟4个核心来测试`IPI`是否正确
@@ -443,8 +443,6 @@ void lapic_ipi_dest(int dest, int vector)
 		;
 }
 ```
-
-
 
 
 
@@ -495,6 +493,8 @@ void dumb_rdunlock(dumbrwlock *rwlk)
 ```
 
 然后发现一个比较大的问题，`JOS`没有实现原子操作，先实现原子操作再进行下面的尝试。
+
+
 
 ### `JOS` 实现原子操作
 
@@ -785,7 +785,8 @@ static __inline__ int atomic_sub_return(int i, atomic_t *v)
   	dumb_wrunlock(&lock2);
   ```
 
-  在给`QEMU`四核参数`CPUS=4`的时候下的运行情况如下：
+
+在给`QEMU`四核参数`CPUS=4`的时候下的运行情况如下：
 
 ```shell
 [rw] CPU 0 gain writer lock1
@@ -816,5 +817,303 @@ static __inline__ int atomic_sub_return(int i, atomic_t *v)
 
 这与期望的读写锁的功能是一致的。至此普通读写锁的实现完成。
 
+
+
 ### `JOS`实现`PRWLock`
 
+首先有几个重点：
+
+- `PRWLock`数据结构设计
+- 锁的具体实现
+- 调度时调用内容
+- `PRWLock`的测试
+
+#### `PRWLock`的数据结构
+
+```c
+enum lock_status
+{
+    FREE = 0,
+    LOCKED,
+    PASS,
+    PASSIVE
+};
+
+struct percpu_prwlock
+{
+    enum lock_status reader;
+    atomic_t version;
+};
+
+typedef struct prwlock
+{
+    enum lock_status writer;
+    struct percpu_prwlock lockinfo[NCPU];
+    atomic_t active;
+    atomic_t version;
+} prwlock;
+```
+
+对于一个`prwlock`，除了其主要的版本以及`ACTIVE`的读者数量，还需要保存每个核心持有该锁的版本号，以及每个核上该锁的读者状态。这里直接通过`lockinfo`数组索引每个核对应的该锁信息。
+
+而全局内核所拥有的读写锁通过`locklist`进行索引，在`init`的时候加入到这个`list`中去。
+
+```c
+extern unsigned int prwlocknum;
+extern prwlock *locklist[MAXPRWLock];
+```
+
+####  锁的具体操作
+
+初始化操作的时候需要设置各种初值，并将其添加到`list`中
+
+```c
+void prw_initlock(prwlock *rwlk)
+{
+    int i = 0;
+    rwlk->writer = FREE;
+    for (i = 0; i < NCPU; i++)
+    {
+        rwlk->lockinfo[i].reader = FREE;
+        atomic_set(&rwlk->lockinfo[i].version, 0);
+    }
+    atomic_set(&rwlk->active, 0);
+    atomic_set(&rwlk->version, 0);
+    locklist[prwlocknum++] = rwlk;
+}
+```
+
+剩下的与论文中伪代码的实现思路相同，只是具体调用的函数有一些差别。
+
+读者锁中包括向核心发送`ipi`。这里只是示意，就没有写`PASS`的具体部分，可以通过添加一个等待标志变量来实现。
+
+```c
+void prw_wrlock(prwlock *rwlk)
+{
+    int newVersion;
+    int id = 0;
+    unsigned int corewait = 0;
+    if (rwlk->writer == PASS)
+        return;
+    rwlk->writer = LOCKED;
+    newVersion = atomic_inc_return(&rwlk->version);
+    for (id = 0; id < ncpu; id++)
+    {
+#ifdef TESTPRW
+        cprintf("CPU %d Ver %d\n", id, atomic_read(&rwlk->lockinfo[id].version));
+#endif
+        if (id != cpunum() && atomic_read(&rwlk->lockinfo[id].version) != newVersion)
+        {
+            lapic_ipi_dest(id, PRWIPI);
+            corewait |= binlist[id];
+#ifdef TESTPRW
+            cprintf("send ipi %d\n", id);
+#endif
+        }
+    }
+    for (id = 0; id < ncpu; id++)
+    {
+        if (corewait & binlist[id])
+        {
+            while (atomic_read(&rwlk->lockinfo[id].version) != newVersion)
+                asm volatile("pause");
+        }
+    }
+    while (atomic_read(&rwlk->active) != 0)
+    {
+        lock_kernel();
+        sched_yield();
+    }
+}
+
+void prw_wrunlock(prwlock *rwlk)
+{
+  	// if someone waiting to gain write lock rwlk->writer should be PASS
+    rwlk->writer = FREE;
+}
+
+void prw_rdlock(prwlock *rwlk)
+{
+    struct percpu_prwlock *st;
+    int lockversion;
+    st = &rwlk->lockinfo[cpunum()];
+    st->reader = PASSIVE;
+    while (rwlk->writer != FREE)
+    {
+        st->reader = FREE;
+        lockversion = atomic_read(&rwlk->version);
+        atomic_set(&st->version, lockversion);
+        while (rwlk->writer != FREE)
+            asm volatile("pause");
+        st = &rwlk->lockinfo[cpunum()];
+        st->reader = PASSIVE;
+    }
+}
+
+void prw_rdunlock(prwlock *rwlk)
+{
+    struct percpu_prwlock *st;
+    int lockversion;
+    st = &rwlk->lockinfo[cpunum()];
+    if (st->reader == PASSIVE)
+        st->reader = FREE;
+    else
+        atomic_dec(&rwlk->active);
+    lockversion = atomic_read(&rwlk->version);
+    atomic_set(&st->version, lockversion);
+}
+```
+
+每个核心接到`PRWIPI`的处理函数
+
+```c
+void prw_ipi_report(struct Trapframe *tf)
+{
+	int lockversion, i;
+	struct percpu_prwlock *st;
+	cprintf("In IPI_report CPU %d\n", cpunum());
+	for (i = 0; i < prwlocknum; i++)
+	{
+		st = &locklist[i]->lockinfo[cpunum()];
+		if (st->reader != PASSIVE)
+		{
+			lockversion = atomic_read(&locklist[i]->version);
+			atomic_set(&st->version, lockversion);
+		}
+	}
+}
+```
+
+#### 调度时调用内容
+
+调度时需要将所有的锁均进行处理，所以要遍历`locklist`
+
+```c
+	// Implement PRWLock
+	if (prwlocknum != 0)
+		for (j = 0; j < prwlocknum; j++)
+			prw_sched(locklist[j]);
+```
+
+具体的`prw_sched`如下：
+
+```c
+void prw_sched(prwlock *rwlk)
+{
+    struct percpu_prwlock *st;
+    int lockversion;
+    st = &rwlk->lockinfo[cpunum()];
+    if (st->reader == PASSIVE)
+    {
+        atomic_inc(&rwlk->active);
+        st->reader = FREE;
+    }
+    lockversion = atomic_read(&rwlk->version);
+    atomic_set(&st->version, lockversion);
+}
+```
+
+#### `PRWLock`的测试
+
+测试`PRWLock`也比较复杂，由于我们使用的是`big kernel lock`，所以内核态里面不好测试，直接在初始化开始`RR`之前测试。这里引入一个新的`IPI`进行测试。
+
+```c
+void prw_debug(struct Trapframe *tf)
+{
+	int needlock = 0;
+	cprintf("====CPU %d in prw debug====\n",cpunum());
+	if(kernel_lock.cpu == thiscpu && kernel_lock.locked == 1)
+	{
+		unlock_kernel();
+		needlock = 1;
+	}
+	prw_wrlock(&lock1);
+	cprintf("====%d gain lock1====\n",cpunum());
+	prw_wrunlock(&lock1);
+	cprintf("====%d release lock1====\n",cpunum());
+	if(needlock)
+		lock_kernel();
+}
+```
+
+给一个核心发送`DEBUGPRW`中断，即让其获取`lock1`的写者锁。
+
+```c
+#ifdef TESTPRW
+	unlock_kernel();
+	prw_initlock(&lock1);
+	prw_wrlock(&lock1);
+	prw_wrunlock(&lock1);
+	prw_rdlock(&lock1);
+	cprintf("====%d Gain Reader Lock====\n", cpunum());
+	lapic_ipi_dest(3, DEBUGPRW);
+	for (int i = 0; i < 10000; i++)
+		asm volatile("pause");
+	prw_rdunlock(&lock1);
+	cprintf("====%d release Reader Lock====\n", cpunum());
+	lock_kernel();
+#endif 
+```
+
+这里先用`unlock_kernel`，避免其他核心无法接收中断，最后再`lock_kernel`，才能开始`sched`。
+
+测试选择`6`个核心
+
+```shell
+SMP: CPU 0 found 6 CPU(s)
+enabled interrupts: 1 2 4
+[MP] CPU 1 starting
+[MP] CPU 2 starting
+[MP] CPU 3 starting
+[MP] CPU 4 starting
+[MP] CPU 5 starting
+[MP] CPU 1 sched
+[MP] CPU 2 sched
+[MP] CPU 3 sched
+[MP] CPU 4 sched
+[MP] CPU 5 sched
+CPU 0 Ver 0
+CPU 1 Ver 0
+send ipi 1
+CPU 2 Ver 0
+send ipi 2
+CPU 3 Ver 0
+send ipi 3
+CPU 4 Ver 0
+send ipi 4
+CPU 5 Ver 0
+====0 Gain Reader Lock====
+In IPI_report CPU 1
+In IPI_report CPU 2
+In IPI_report CPU 4
+FS is running
+====CPU 3 in prw debug====
+FS can do I/O
+CPU 0 Ver 0
+Dsend ipi 0
+evice 1 presence: 1
+CPU 1 Ver 1
+send ipi 1
+CPU 2 Ver 2
+CPU 3 Ver 1
+CPU 4 Ver 1
+send ipi 4
+CPU 5 Ver 1
+send ipi 5
+In IPI_report CPU 5
+$ block cache is good
+superblock is good
+bitmap is good
+alloc_block is good
+file_open is good
+file_get_block is good
+file_flush is good
+file_truncate is good
+file rewrite is good
+====0 release Reader Lock====
+Init finish! Sched start...
+====3 gain lock1====
+====3 release lock1====
+```
+
+当`CPU0`释放了读着锁之后，`CPU3`才能够获取`lock1`，测试正确

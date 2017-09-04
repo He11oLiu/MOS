@@ -23,7 +23,8 @@
 #define T_ALIGN     17		// aligment check
 #define T_MCHK      18		// machine check
 #define T_SIMDERR   19		// SIMD floating point error
-#define T_PRWIPI	20		// IPI report for PRWLock
+#define PRWIPI		20		// IPI report for PRWLock
+#define DEBUGPRW	21		// Debug PRWLock
 
 // These are arbitrarily chosen, but with care not to overlap
 // processor defined exceptions or interrupt vectors.
