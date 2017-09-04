@@ -7,7 +7,6 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/rwlock.h>
-#include <kern/kdebug.h>
 
 
 void rw_initlock(dumbrwlock *rwlk)

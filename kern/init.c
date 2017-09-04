@@ -14,6 +14,7 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/rwlock.h>
+#include <kern/prwlock.h>
 
 static void boot_aps(void);
 
@@ -56,6 +57,7 @@ void i386_init(void)
 	// Acquire the big kernel lock before waking up APs
 	lock_kernel();
 
+#ifdef TESTRW
 	// test reader-writer lock
 	rw_initlock(&lock1);
 	rw_initlock(&lock2);
@@ -65,13 +67,17 @@ void i386_init(void)
 	dumb_rdlock(&lock2);
 	cprintf("[rw] CPU %d gain reader lock2\n", cpunum());
 
+#endif
+
 	// Starting non-boot CPUs
 	boot_aps();
 
+#ifdef TESTRW
 	cprintf("[rw] CPU %d going to release writer lock1\n", cpunum());
 	dumb_wrunlock(&lock1);	
 	cprintf("[rw] CPU %d going to release reader lock2\n", cpunum());
 	dumb_rdunlock(&lock2);
+#endif
 	
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
@@ -88,6 +94,11 @@ void i386_init(void)
 	kbd_intr();
 
 	cprintf("Init finish! Sched start...\n");
+
+	// test ipi
+	// lapic_ipi_others(T_PRWIPI);
+	lapic_ipi_dest(3,T_PRWIPI);
+
 	// Schedule and run the first user environment!
 	sched_yield();
 }
@@ -137,6 +148,7 @@ void mp_main(void)
 	trap_init_percpu();
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
+#ifdef TESTRW
 	// reader-writer lock test
 	dumb_rdlock(&lock1);
 	cprintf("[rw] %d l1\n", cpunum());
@@ -149,6 +161,7 @@ void mp_main(void)
 	asm volatile("pause");
 	cprintf("[rw] %d unl2\n", cpunum());
 	dumb_wrunlock(&lock2);
+#endif
 
 	// Now that we have finished some basic setup, call sched_yield()
 	// to start running processes on this CPU.  But make sure that

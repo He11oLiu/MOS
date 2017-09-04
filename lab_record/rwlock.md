@@ -156,7 +156,47 @@ S(latency)(s) = 1/((1-p)+p/s)
 
 ### `JOS`的核间中断实现
 
-再一次详细查看`JOS`中的核间中断的实现方式
+#### 关于`Local APIC`
+
+> 在一个基于`APIC`的系统中，每一个核心都有一个`Local APIC`，`Local APIC`负责处理`CPU`中特定的中断配置。还有其他事情，它包含了`Local Vector Table(LVT)`负责配置事件中断。
+>
+> 此外，还有一个CPU外面的`IO APIC`(例如`Intel82093AA`）的芯片组，并且提供基于多处理器的中断管理，在多个处理器之间，实现静态或动态的中断触发路由。
+>
+> `Inter-Processor Interrupts（IPIs)`是一种由`Local APIC`触发的中断，一般可以用于多CPU间调度之类的使用
+>
+> 想要开启`Local APIC`接收中断，则需要设置`Spurious Interrupt Vector Register`的第8位即可。
+>
+> 使用`APIC Timer`的最大好处是每个cpu内核都有一个定时器。相反`PIT(Programmable Interval Timer)`就不这样，`PIT`是共用的一个。
+>
+> - 周期触发模式
+>
+>   周期触发模式中，程序设置一个”初始计数“寄存器（Initial Count），同时Local APIC会将这个数复制到”当前计数“寄存器（Current Count）。Local APIC会将这个数（当前计数）递减，直到减到0为止，这时候将触发一个IRQ（可以理解为触发一次中断），与此同时将当前计数恢复到初始计数寄存器的值，然后周而复始的执行上述逻辑。可以使用这种方法通过Local APIC实现定时按照一定时间间隔触发中断的功能。
+>
+> - 一次性触发模式
+>
+>   同之前一样，但是不会恢复到初始计数。
+>
+> - `TSC-Deadline Modie`
+>
+>   `cpu`的时间戳到达`deadline`的时候会触发`IRQ`
+>
+> [来源Blog](http://blog.csdn.net/borisjineman/article/details/51050049)
+
+> 每个本地`APIC`都有 32 位的寄存器，一个内部时钟，一个本地定时设备以及为本地中断保留的两条额外的 IRQ 线 LINT0 和 LINT1。所有本地 APIC 都连接到 I/O APIC，形成一个多级 APIC 系统。
+>
+> Intel x86架构提供LINT0和LINT1两个中断引脚，他们通常与Local APIC相连，用于接收Local APIC传递的中断信号，另外，当Local APIC被禁用的时候，LINT0和LINT1即被配置为INTR和NMI管脚，即外部IO中断管脚和非屏蔽中断管脚。
+>
+> [来源博客](http://rock3.info/blog/tag/apic/)
+
+![](./ioapic.gif)
+
+
+
+> The local APIC registers are memory mapped to an address that can be found in the MP/MADT tables. Make sure you map these to virtual memory if you are using paging. Each register is 32 bits long, and expects to written and read as a 32 bit integer. Although each register is 4 bytes, they are all aligned on a 16 byte boundary. 
+
+再一次详细查看`JOS`中的核间中断的实现方式，
+
+由于这段映射，设置了`nocache`和直写的特性，便于对于`IO`的操作。
 
 ```c
 void lapic_init(void)
@@ -218,7 +258,134 @@ void lapic_init(void)
 
 `lapic_init`将`LAPIC`映射到`lapicaddr`地址上，并且初始化`LAPIC`各种中断参数。
 
-由于这段映射，设置了`nocache`和直写的特性，便于对于`IO`的操作。
+```c
+// Local APIC registers, divided by 4 for use as uint32_t[] indices.
+#define ID (0x0020 / 4)	// ID
+```
+
+这里的宏定义为`/4`是因为`MMIO`映射到`MMIOaddr`，保存在`volatile uint32_t *lapic;`中。这个单位是`uint32_t`，故所有的地址均`/4`
+
+下面来看一下主要的`APIC Registers`
+
+- EOI Register
+
+  Write to the register with offset 0xB0 using the value 0 to signal an end of interrupt. A non-zero values causes a general protection fault.
+
+  ```c
+  #define EOI (0x00B0 / 4)   // EOI
+  // Acknowledge interrupt.
+  void lapic_eoi(void)
+  {
+  	if (lapic)
+  		lapicw(EOI, 0);
+  }
+  ```
+
+- Local Vector Table Registers
+
+  There are some special interrupts that the processor and LAPIC can generate themselves. While external interrupts are configured in the I/O APIC, these interrupts must be configured using registers in the LAPIC. The most interesting registers are: 
+
+  `0x320 = lapic timer`
+
+  `0x350 = lint0`
+
+  `0x360 = lint1`
+
+  See the Intel SDM vol 3 for more info.
+
+  | Bits 0-7                      | The vector number                    |
+  | ----------------------------- | ------------------------------------ |
+  | Bit 8-11 (reserved for timer) | 100b if NMI                          |
+  | Bit 12                        | Set if interrupt pending.            |
+  | Bit 13 (reserved for timer)   | Polarity, set is low triggered       |
+  | Bit 14 (reserved for timer)   | Remote IRR                           |
+  | Bit 15 (reserved for timer)   | trigger mode, set is level triggered |
+  | Bit 16                        | Set to mask                          |
+  | Bits 17-31                    | Reserved                             |
+
+  `JOS`在这里只保留了`BSP`的`LINT0`用于接受`8259A`的中断，其他的`LINT0`与`LINT1`非屏蔽中断，均设置为`MASKED`
+
+  ```c
+  	// Leave LINT0 of the BSP enabled so that it can get
+  	// interrupts from the 8259A chip.
+  	//
+  	// According to Intel MP Specification, the BIOS should initialize
+  	// BSP's local APIC in Virtual Wire Mode, in which 8259A's
+  	// INTR is virtually connected to BSP's LINTIN0. In this mode,
+  	// we do not need to program the IOAPIC.
+  	if (thiscpu != bootcpu)
+  		lapicw(LINT0, MASKED);
+
+  	// Disable NMI (LINT1) on all CPUs
+  	lapicw(LINT1, MASKED);
+  ```
+
+- Spurious Interrupt Vector Register
+
+  The offset is 0xF0. The low byte contains the number of the spurious interrupt. As noted above, you should probably set this to 0xFF. To enable the APIC, set bit 8 (or 0x100) of this register. If bit 12 is set then EOI messages will not be broadcast. All the other bits are currently reserved.
+
+  ```c
+  	// Enable local APIC; set spurious interrupt vector.
+  	lapicw(SVR, ENABLE | (IRQ_OFFSET + IRQ_SPURIOUS));
+  ```
+
+- Interrupt Command Register
+
+  The interrupt command register is made of two 32-bit registers; one at 0x300 and the other at 0x310. 
+
+  ```c
+  #define ICRHI (0x0310 / 4)  // Interrupt Command [63:32]
+  #define ICRLO (0x0300 / 4) 	// Interrupt Command [31:0]
+  ```
+
+  It is used for sending interrupts to different processors. 
+
+  The interrupt is issued when 0x300 is written to, but not when 0x310 is written to. Thus, to send an interrupt command one should first write to 0x310, then to 0x300.
+
+  需要先写`ICRHI`，然后在写`ICRLO`的时候就会产生中断。
+
+  At 0x310 there is one field at bits 24-27, which is local APIC ID of the target processor (for a physical destination mode).
+
+  ```c
+  lapicw(ICRHI, apicid << 24);
+  ```
+
+  给`ICRHI`中断目标核心的`local APIC ID`。这里的`apicid`是在`MP Floating Pointer Structure`读的时候顺序给的`cpu_id`。
+
+  Here is how 0x300 is structured:
+
+  | Bits 0-7   | The vector number, or starting page number for SIPIs |
+  | ---------- | ---------------------------------------- |
+  | Bits 8-10  | The destination mode. 0 is normal, 1 is lowest priority, 2 is SMI, 4 is NMI, 5 can be INIT or INIT level de-assert, 6 is a SIPI. |
+  | Bit 11     | The destination mode. Clear for a physical destination, or set for a logical destination. If the bit is clear, then the destination field in 0x310 is treated normally. |
+  | Bit 12     | Delivery status. Cleared when the interrupt has been accepted by the target. You should usually wait until this bit clears after sending an interrupt. |
+  | Bit 13     | Reserved                                 |
+  | Bit 14     | Clear for INIT level de-assert, otherwise set. |
+  | Bit 15     | Set for INIT level de-assert, otherwise clear. |
+  | Bits 18-19 | Destination type. If this is > 0 then the destination field in 0x310 is ignored. 1 will always send the interrupt to the itself, 2 will send it to all processors, and 3 will send it to all processors aside from the current one. It is best to avoid using modes 1, 2 and 3, and stick with 0. |
+  | Bits 20-31 | Reserved                                 |
+
+  **ICRLO**的分布比较重要
+
+  - 其中目标模式有(`8-10`)
+
+    ```c
+    #define INIT 0x00000500		// INIT/RESET
+    #define STARTUP 0x00000600 	// Startup IPI
+    ```
+
+
+  - 其中发送模式有(`18~19`)
+
+    ```c
+    #define SELF  0x00040000  // Send to self
+    #define BCAST 0x00080000  // Send to all APICs, including self.
+    #define OTHERS 0x000C0000 // Send to all APICs, excluding self.
+    ```
+
+    不设置的话则为发送给`0x310 ICRHI`制定的核心。
+
+综上，打包了一个`IPI`发送的接口，
 
 ```c
 void lapic_ipi(int vector)
@@ -227,15 +394,59 @@ void lapic_ipi(int vector)
 	while (lapic[ICRLO] & DELIVS)
 		;
 }
-// Acknowledge interrupt.
-void lapic_eoi(void)
-{
-	if (lapic)
-		lapicw(EOI, 0);
-}
 ```
 
 用于发送`IPI`与`IPI ACK`均是利用MMIO直接对相应地址书写，比较简单。
+
+这里测试一下，先设置`trap`中的`IPI`中断
+
+```c
+#define T_PRWIPI	20		// IPI report for PRWLock
+void prw_ipi_report(struct Trapframe *tf)
+{
+	cprintf("%d in ipi report\n",cpunum());
+}
+```
+
+在`trap_dispatch`中加入对这个中断的分发
+
+```c
+	case T_PRWIPI:
+		prw_ipi_report(tf);
+		break;
+```
+
+最后在`init`的时候用`bsp`发送`IPI`给所有其他核心
+
+```c
+	lapic_ipi(T_PRWIPI);
+```
+
+设置`QEMU`模拟4个核心来测试`IPI`是否正确
+
+```shell
+1 in ipi report
+3 in ipi report
+2 in ipi report
+```
+
+非`BSP`可以正确的接受`IPI`并进入中断处理历程。
+
+针对向具体核发送`IPI`，抽象函数`lapic_ipi_dest`
+
+```c
+void lapic_ipi_dest(int dest, int vector)
+{
+	lapicw(ICRHI, dest << 24);
+	lapicw(ICRLO, FIXED | vector);
+	while (lapic[ICRLO] & DELIVS)
+		;
+}
+```
+
+
+
+
 
 
 ### `JOS`实现传统内核态读写锁

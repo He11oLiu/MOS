@@ -41,7 +41,6 @@ void sched_yield(void)
 		for (i = (env_id + 1) % NENV; i != env_id; i = (i + 1) % NENV)
 			if (envs[i].env_status == ENV_RUNNABLE)
 			{
-				// cprintf("cur %08x FIND %08x run\n",curenv->env_id,envs[i].env_id);
 				env_run(&envs[i]);
 			}
 		if (curenv->env_status == ENV_RUNNING)

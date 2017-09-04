@@ -18,13 +18,14 @@
 #define SVR (0x00F0 / 4)   // Spurious Interrupt Vector
 #define ENABLE 0x00000100  // Unit Enable
 #define ESR (0x0280 / 4)   // Error Status
-#define ICRLO (0x0300 / 4) // Interrupt Command
+#define ICRLO (0x0300 / 4) // Interrupt Command [31:0]
 #define INIT 0x00000500	// INIT/RESET
 #define STARTUP 0x00000600 // Startup IPI
 #define DELIVS 0x00001000  // Delivery status
 #define ASSERT 0x00004000  // Assert interrupt (vs deassert)
 #define DEASSERT 0x00000000
 #define LEVEL 0x00008000  // Level triggered
+#define SELF 0x00040000   // Send to self
 #define BCAST 0x00080000  // Send to all APICs, including self.
 #define OTHERS 0x000C0000 // Send to all APICs, excluding self.
 #define BUSY 0x00001000
@@ -66,6 +67,7 @@ void lapic_init(void)
 	// from lapic[TICR] and then issues an interrupt.
 	// If we cared more about precise timekeeping,
 	// TICR would be calibrated using an external time source.
+	// So called 'LAPIC TIMER'
 	lapicw(TDCR, X1);
 	lapicw(TIMER, PERIODIC | (IRQ_OFFSET + IRQ_TIMER));
 	lapicw(TICR, 10000000);
@@ -168,9 +170,17 @@ void lapic_startap(uint8_t apicid, uint32_t addr)
 	}
 }
 
-void lapic_ipi(int vector)
+void lapic_ipi_others(int vector)
 {
 	lapicw(ICRLO, OTHERS | FIXED | vector);
+	while (lapic[ICRLO] & DELIVS)
+		;
+}
+
+void lapic_ipi_dest(int dest, int vector)
+{
+	lapicw(ICRHI, dest << 24);
+	lapicw(ICRLO, FIXED | vector);
 	while (lapic[ICRLO] & DELIVS)
 		;
 }

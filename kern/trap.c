@@ -200,6 +200,9 @@ trap_dispatch(struct Trapframe *tf)
 	case T_PGFLT:
 		page_fault_handler(tf);
 		break;
+	case T_PRWIPI:
+		prw_ipi_report(tf);
+		break;
 	case T_SYSCALL:
 		tf->tf_regs.reg_eax = syscall(
 			tf->tf_regs.reg_eax,
@@ -355,4 +358,9 @@ void page_fault_handler(struct Trapframe *tf)
 		print_trapframe(tf);
 		env_destroy(curenv);
 	}
+}
+
+void prw_ipi_report(struct Trapframe *tf)
+{
+	cprintf("%d in ipi report\n",cpunum());
 }
