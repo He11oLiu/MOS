@@ -64,16 +64,13 @@
 - 支持`IPI`
 - 支持`PRWLock`
 - 支持图形
+- 支持中英文显示（点阵字库）
 
 
 
 
 ## 计划完成的特性
 
-- MSH
-
-  功能更全的`shell`
-
-- `GUI`
+- MSH 功能更全的`shell`
 
 - `lab challenge`

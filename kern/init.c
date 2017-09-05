@@ -23,7 +23,7 @@ static void get_boot_info(void);
 struct boot_info
 {
 	short scrnx, scrny;
-	char *vram;
+	uint8_t *vram;
 };
 
 #ifdef TESTRW

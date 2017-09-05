@@ -1,17 +1,13 @@
-# JOS GUI
+# JOS Graph
+
+![](./graph.png)
+
+
 
 ## About VESA
 
-`Video Electronics Standards Association`（视频电子标准协会，简称“VESA”）是制定计算机和小型工作站视频设备标准的国际组织，1989年由NEC及其他8家显卡制造商赞助成立。
+`Video Electronics Standards Association`（视频电子标准协会，简称“VESA”）是制定计算机和小型工作站视频设备标准的国际组织，1989年由NEC及其他8家显卡制造商赞助成立。创立VESA的原始目的是要制定分辨率为`800x600`的SVGA视频显示标准。其后，VESA公告一系列的个人电脑视频周边功能的相关标准。
 
-创立VESA的原始目的是要制定分辨率为`800x600`的SVGA视频显示标准。其后，VESA公告一系列的个人电脑视频周边功能的相关标准。
-
-
-
-## 2 ways
-
-1. 根据`VESA`手册，在保护模式对其进行`BIOS`调用。
-2. 在实模式开启图形功能，将显存记下来，然后在保护模式通过修改地址达到对图形界面的控制。
 
 
 
@@ -34,6 +30,8 @@
   - `AH=03H`：当前的显示模式不支持该功能
 
 ### 具体功能
+
+此部分参考*VESA编程——GUI离我们并不遥远*，原作者博客已关闭。
 
 #### 功能0x00：返回控制器信息
 
@@ -84,68 +82,7 @@ typedef struct {
     AX        =				VBE返回值  
 ```
 
-这个函数返回一个ModeInfoBlock结构体，该结构体定义如下：
-
-```c
-01	// Vbe Mode Info Block
-02	typedef struct {
-03	    // Mandatory information for all VBE revisions
-04	    unsigned short  mode_attributes;
-05	    unsigned char   wina_attributes;
-06	    unsigned char   winb_attributes;
-07	    unsigned short  win_granularity;
-08	    unsigned short  win_size;
-09	    unsigned short  wina_segment;
-10	    unsigned short  winb_segment;
-11	    unsigned long   win_func_ptr;
-12	    unsigned short  bytes_per_scan_line;
-13	 
-14	    // Mandatory information for VBE 1.2 and above
-15	    unsigned short  xresolution;
-16	    unsigned short  yresolution;
-17	    unsigned char   xchar_size;
-18	    unsigned char   ychar_size;
-19	    unsigned char   number_of_planes;
-20	    unsigned char   bits_per_pixel;
-21	    unsigned char   number_of_banks;
-22	    unsigned char   memory_model;
-23	    unsigned char   bank_size;
-24	    unsigned char   number_of_image_pages;
-25	    unsigned char   reserved1;
-26	 
-27	    // Direct Color fields (required for direct/6 and YUV/7 memory models)
-28	    unsigned char   red_mask_size;
-29	    unsigned char   red_field_position;
-30	    unsigned char   green_mask_size;
-31	    unsigned char   green_field_position;
-32	    unsigned char   blue_mask_size;
-33	    unsigned char   blue_field_position;
-34	    unsigned char   rsvd_mask_size;
-35	    unsigned char   rsvd_field_positon;
-36	    unsigned char   direct_color_mode_info;
-37	 
-38	    // Mandatory information for VBE 2.0 and above
-39	    unsigned long   phys_base_ptr;
-40	    unsigned long   reserved2;
-41	    unsigned short  reserved3;
-42	 
-43	    // Mandatory information for VBE 3.0 and above
-44	    unsigned short  lin_bytes_per_scan_line;
-45	    unsigned char   bnk_number_of_image_pages;
-46	    unsigned char   lin_number_of_image_pages;
-47	    unsigned char   lin_red_mask_size;
-48	    unsigned char   lin_red_field_position;
-49	    unsigned char   lin_green_mask_size;
-50	    unsigned char   lin_green_field_position;
-51	    unsigned char   lin_blue_mask_size;
-52	    unsigned char   lin_blue_field_position;
-53	    unsigned char   lin_rsvd_mask_size;
-54	    unsigned char   lin_rsvd_field_position;
-55	    unsigned long   max_pixel_color;
-56	    unsigned char   reserved4[189];
-57	 
-58	} VbeModeInfoBlock;
-```
+这个函数返回一个ModeInfoBlock结构体，其中重要的部分如下：
 
 - `mode_attributes`字段，这个字段描述了图形模式的一些重要属性。其中最重要的是第4位和第7位。第4位为1表示图形模式(Graphics mode)，为0表示文本模式(Text mode)。第7位为1表示线性帧缓冲模式(Linear frame buffer mode)，为0表示非线性帧缓冲模式。我们主要要检查这两个位。
 - `xresolution`，表示该视频模式的X分辨率。
@@ -155,7 +92,7 @@ typedef struct {
 
 #### 功能02 设置VBE模式信息
 
-```
+```assembly
 输入：
 	AX      = 4F02h     设置VBE模式
 	BX      =           需要设置的模式
@@ -176,9 +113,7 @@ typedef struct {
 
 
 
-
-
-## 开始工作
+## `JOS`实现
 
 - Qemu需要添加`-vga std`
 
@@ -247,8 +182,6 @@ typedef struct {
 
   这个地方我选择初始化`memory layout`之后，开启真正的页表的时候才获取信息。所以这里要用`KADDR`进行物理地址到`KVA`的转化。
 
-  ​
-
 - 设计一个全局用于保存图像相关信息的结构体
 
   ```c
@@ -282,4 +215,92 @@ typedef struct {
   }
   ```
 
-  ​
+
+
+
+## 补充图像库
+
+上面基本已经实现了图像显示基本平台。现在补充一些常用的图像库。
+
+```c
+#define PIXEL(x, y) *(graph.vram + x + (y * graph.scrnx))
+int draw_screen(uint8_t color)
+{
+    int i;
+    for (i = 0; i < graph.scrnx * graph.scrny; i++)
+        *(graph.vram + i) = color;
+    return 0;
+}
+
+int draw_pixel(short x, short y, uint8_t color)
+{
+    if ((x >= graph.scrnx) || (y >= graph.scrny))
+        return -1;
+    *(graph.vram + x + (y * graph.scrnx)) = color;
+    return 0;
+}
+
+int draw_rect(short x, short y, short l, short w, uint8_t color)
+{
+    int i, j;
+    w = (y + w) > graph.scrny ? graph.scrny : (y + w);
+    l = (x + l) > graph.scrnx ? graph.scrnx : (x + l);
+    for (j = y; j < w; j++)
+        for (i = x; i < l; i++)
+            *(graph.vram + i + j * graph.scrnx) = color;
+    return 0;
+}
+```
+
+
+
+## 字库实现
+
+这部分也是老生常谈了，板子上各种系统都实现过点阵字库。
+
+```c
+int draw_ascii(short x, short y, char *str, uint8_t color)
+{
+    char *font;
+    int i, j, k = 0;
+    for (k = 0; str[k] != 0; k++)
+    {
+        font = (char *)(ascii_8_16 + (str[k] - 0x20) * 16);
+        for (i = 0; i < 16; i++)
+            for (j = 0; j < 8; j++)
+                if ((font[i] << j) & 0x80)
+                    PIXEL((x + j), (y + i)) = color;
+        x += 8;
+    }
+    return k;
+}
+
+int draw_cn(short x, short y, char *str, uint8_t color)
+{
+    uint16_t font;
+    int i, j, k;
+    int offset;
+    for (k = 0; str[k] != 0; k += 2)
+    {
+        offset = ((char)(str[k] - 0xa0 - 1) * 94 +
+                  ((char)(str[k + 1] - 0xa0) - 1)) *
+                 32;
+        for (i = 0; i < 16; i++)
+        {
+            font = cn_lib[offset + i * 2] << 8 |
+                   cn_lib[offset + i * 2 + 1];
+            for (j = 0; j < 16; j++)
+                if ((font << j) & 0x8000)
+                    PIXEL((x + j), (y + i)) = color;
+        }
+        x += 16;
+    }
+    return 0;
+}
+```
+
+直接把之前单片机的点阵字库拿过来，不过单片机当时开发环境是`win`，找的字库寻址模式是`GB2312`的。这里把这个文件的编码改为`GB2312`来正确编码中文即可。实现效果见文章头。
+
+## 总结
+
+至此，基本的`GUI`底层接口已基本实现，后面的就是各种数据结构的设计，窗口树设计之类。这里暂不打算继续深究，转而研究其余内核的东西。
