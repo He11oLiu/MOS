@@ -11,7 +11,7 @@
 ## 完成列表
 
 - [x] lab1 Booting a PC
-- [ ] lab1 challenge: VGA GUI
+- [x] lab1 challenge: VGA GUI
 - [x] lab2 Memory Management
 - [ ] lab2 challenge
 - [x] lab3 User Environments
@@ -56,14 +56,14 @@
 
 
 
+
 ## 新特性
 
 - 支持原子操作
 - 支持读写锁
 - 支持`IPI`
 - 支持`PRWLock`
-
-
+- 支持图形
 
 
 
@@ -74,8 +74,6 @@
 
   功能更全的`shell`
 
-- GUI接口
+- `GUI`
 
-  `VESA`开启`GUI`，实现简易绘图接口
-
-- `lab challenge
+- `lab challenge`
