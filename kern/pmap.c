@@ -202,11 +202,15 @@ void mem_init(void)
 	//       the kernel overflows its stack, it will fault rather than
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
-	for (i = 0; i < NCPU; i++)
-		boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE - i * (KSTKSIZE + KSTKGAP), KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+	// for (i = 0; i < NCPU; i++)
+	// 	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE - i * (KSTKSIZE + KSTKGAP), KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+	// initial in mem_init_mp
 
 	// cprintf("%#x~%#x->%#x~%#x\n", PADDR(bootstack), PADDR(bootstack) + KSTKSIZE, KSTACKTOP - KSTKSIZE, KSTACKTOP);
 	// KSTACKTOP - PTSIZE ~ KSTACKTOP-KSTKSIZE not backed
+
+	// Map VRAM
+	// boot_map_region(kern_pgdir, KERNBASE, VRAMTOP-KERNBASE,0xfd000000,PTE_W | PTE_P);
 
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -214,8 +218,10 @@ void mem_init(void)
 	// We might not have 2^32 - KERNBASE bytes of physical memory, but
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
+
 	boot_map_region(kern_pgdir, KERNBASE, (unsigned int)-KERNBASE, 0, PTE_W | PTE_P);
 	// cprintf("%#x~%#x->%#x~0x100000000\n", 0, (unsigned int)-KERNBASE, KERNBASE);
+	// boot_map
 
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
@@ -266,7 +272,9 @@ mem_init_mp(void)
 	//             Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	//
-	// LAB 4: Your code here:
+	int i;
+	for (i = 0; i < NCPU; i++)
+		boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE - i * (KSTKSIZE + KSTKGAP), KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
 }
 
 // --------------------------------------------------------------
@@ -591,7 +599,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// handle if this reservation would overflow MMIOLIM (it's
 	// okay to simply panic if this happens).
 
-	size = ROUNDUP(size+PGOFF(pa), PGSIZE);
+	size = ROUNDUP(size + PGOFF(pa), PGSIZE);
 	pa = ROUNDDOWN(pa, PGSIZE);
 	if (base + size >= MMIOLIM)
 		panic("mmio_map_region error: size overflow");

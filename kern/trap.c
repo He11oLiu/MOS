@@ -382,6 +382,7 @@ void prw_ipi_report(struct Trapframe *tf)
 
 void prw_debug(struct Trapframe *tf)
 {
+#ifdef TESTPRW
 	int needlock = 0;
 	cprintf("====CPU %d in prw debug====\n",cpunum());
 	if(kernel_lock.cpu == thiscpu && kernel_lock.locked == 1)
@@ -395,4 +396,5 @@ void prw_debug(struct Trapframe *tf)
 	cprintf("====%d release lock1====\n",cpunum());
 	if(needlock)
 		lock_kernel();
+#endif
 }

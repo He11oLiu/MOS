@@ -7,7 +7,7 @@
 #include <kern/cpu.h>
 
 #define MAXPRWLock 100
-#define TESTPRW
+// #define TESTPRW
 
 enum lock_status
 {

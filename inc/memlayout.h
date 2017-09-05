@@ -85,6 +85,7 @@
 
 // All physical memory mapped at this address
 #define	KERNBASE	0xF0000000
+#define VRAMTOP		0xF1000000
 
 // At IOPHYSMEM (640K) there is a 384K hole for I/O.  From the kernel,
 // IOPHYSMEM can be addressed at KERNBASE + IOPHYSMEM.  The hole ends

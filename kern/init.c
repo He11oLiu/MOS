@@ -15,10 +15,16 @@
 #include <kern/spinlock.h>
 #include <kern/rwlock.h>
 #include <kern/prwlock.h>
+#include <kern/graph.h>
 
 static void boot_aps(void);
+static void get_boot_info(void);
 
-#define TESTPRW
+struct boot_info
+{
+	short scrnx, scrny;
+	char *vram;
+};
 
 #ifdef TESTRW
 // test reader-writer lock
@@ -26,7 +32,7 @@ dumbrwlock lock1;
 dumbrwlock lock2;
 #endif
 
-void i386_init(void)
+void i386_init()
 {
 	extern char edata[], end[];
 
@@ -46,6 +52,13 @@ void i386_init(void)
 
 	// Lab 2 memory management initialization functions
 	mem_init();
+
+	// get information from boot_info
+	// must be used after mem_init()
+	get_boot_info();
+
+	// init graph
+	graph_init();
 
 	// Lab 3 user environment initialization functions
 	env_init();
@@ -110,7 +123,7 @@ void i386_init(void)
 	prw_rdunlock(&lock1);
 	cprintf("====%d release Reader Lock====\n", cpunum());
 	lock_kernel();
-#endif 
+#endif
 
 	cprintf("Init finish! Sched start...\n");
 	// Schedule and run the first user environment!
@@ -229,4 +242,13 @@ void _warn(const char *file, int line, const char *fmt, ...)
 	vcprintf(fmt, ap);
 	cprintf("\n");
 	va_end(ap);
+}
+
+static void get_boot_info(void)
+{
+	struct boot_info *info = (struct boot_info *)(KADDR(0x0ff0));
+	// Init Graph info
+	graph.scrnx = info->scrnx;
+	graph.scrny = info->scrny;
+	graph.vram = info->vram;
 }
