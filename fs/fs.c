@@ -145,8 +145,7 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 		// if indirect block not exist
 		if (!f->f_indirect)
 		{
-			//	-E_NOT_FOUND if the function needed to allocate an indirect block, but
-			//		alloc was 0.
+			//	-E_NOT_FOUND if the function needed to allocate an indirect block, but alloc was 0.
 			if (!alloc)
 				return -E_NOT_FOUND;
 			//	-E_NO_DISK if there's no space on the disk for an indirect block.
@@ -333,7 +332,7 @@ int file_create(const char *path, struct File **pf)
 		return r;
 	if ((r = dir_alloc_file(dir, &f)) < 0)
 		return r;
-
+		
 	strcpy(f->f_name, name);
 	*pf = f;
 	file_flush(dir);

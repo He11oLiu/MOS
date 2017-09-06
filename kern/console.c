@@ -464,7 +464,7 @@ cons_putc(int c)
 void
 cons_init(void)
 {
-	cga_init();
+	// cga_init();
 	kbd_init();
 	serial_init();
 

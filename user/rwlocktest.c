@@ -4,47 +4,48 @@ void lockenv();
 
 void umain(int argc, char **argv)
 {
-    int eid;
-    int ret;
-    eid = fork();
-    if (eid == 0)
-    {
-        int *trans;
-        void *dstva;
-        dstva = (void *)USTACKTOP;
-        trans = dstva;
-        ret = sys_ipc_recv(dstva);
-        if (ret != 0)
-            cprintf("error %e\n", ret);
-        else
-        {
-            cprintf("Recv trans %d success!\n", *trans);
-            // lockenv(&lock);
-        }
-    }
-    else
-    {
-        struct spinlock *lock;
-        int *trans;
-        void *srcva = (void *)USTACKTOP;
-        trans = srcva;
+    cprintf("not finish\n");
+    // int eid;
+    // int ret;
+    // eid = fork();
+    // if (eid == 0)
+    // {
+    //     int *trans;
+    //     void *dstva;
+    //     dstva = (void *)USTACKTOP;
+    //     trans = dstva;
+    //     ret = sys_ipc_recv(dstva);
+    //     if (ret != 0)
+    //         cprintf("error %e\n", ret);
+    //     else
+    //     {
+    //         cprintf("Recv trans %d success!\n", *trans);
+    //         // lockenv(&lock);
+    //     }
+    // }
+    // else
+    // {
+    //     struct spinlock *lock;
+    //     int *trans;
+    //     void *srcva = (void *)USTACKTOP;
+    //     trans = srcva;
         
-        *trans = 20;
+    //     *trans = 20;
 
-        // spin_initlock(&lock);
-        ret = sys_ipc_try_send(eid, 0, srcva, PTE_W | PTE_U | PTE_P);
-        cprintf("send state %e\n", ret);
-        // ?????????????????? how to use ipc .....
-        while (ret == -E_IPC_NOT_RECV)
-        {
-            sys_yield();
-            ret = sys_ipc_try_send(eid, 0, srcva, PTE_W | PTE_U | PTE_P);
-            cprintf("send state %e\n", ret);
-        }
-        if (ret == 0)
-            cprintf("Send trans %d success!\n", *trans);
-        // lockenv(&lock);
-    }
+    //     // spin_initlock(&lock);
+    //     ret = sys_ipc_try_send(eid, 0, srcva, PTE_W | PTE_U | PTE_P);
+    //     cprintf("send state %e\n", ret);
+    //     // ?????????????????? how to use ipc .....
+    //     while (ret == -E_IPC_NOT_RECV)
+    //     {
+    //         sys_yield();
+    //         ret = sys_ipc_try_send(eid, 0, srcva, PTE_W | PTE_U | PTE_P);
+    //         cprintf("send state %e\n", ret);
+    //     }
+    //     if (ret == 0)
+    //         cprintf("Send trans %d success!\n", *trans);
+    //     // lockenv(&lock);
+    // }
 }
 
 void lockenv(struct spinlock *lock)

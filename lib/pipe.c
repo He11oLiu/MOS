@@ -8,44 +8,42 @@ static int devpipe_stat(struct Fd *fd, struct Stat *stat);
 static int devpipe_close(struct Fd *fd);
 
 struct Dev devpipe =
+	{
+		.dev_id = 'p',
+		.dev_name = "pipe",
+		.dev_read = devpipe_read,
+		.dev_write = devpipe_write,
+		.dev_close = devpipe_close,
+		.dev_stat = devpipe_stat,
+};
+
+#define PIPEBUFSIZ 32 // small to provoke races
+
+struct Pipe
 {
-	.dev_id =	'p',
-	.dev_name =	"pipe",
-	.dev_read =	devpipe_read,
-	.dev_write =	devpipe_write,
-	.dev_close =	devpipe_close,
-	.dev_stat =	devpipe_stat,
+	off_t p_rpos;			   // read position
+	off_t p_wpos;			   // write position
+	uint8_t p_buf[PIPEBUFSIZ]; // data buffer
 };
 
-#define PIPEBUFSIZ 32		// small to provoke races
-
-struct Pipe {
-	off_t p_rpos;		// read position
-	off_t p_wpos;		// write position
-	uint8_t p_buf[PIPEBUFSIZ];	// data buffer
-};
-
-int
-pipe(int pfd[2])
+int pipe(int pfd[2])
 {
 	int r;
 	struct Fd *fd0, *fd1;
 	void *va;
 
 	// allocate the file descriptor table entries
-	if ((r = fd_alloc(&fd0)) < 0
-	    || (r = sys_page_alloc(0, fd0, PTE_P|PTE_W|PTE_U|PTE_SHARE)) < 0)
+	if ((r = fd_alloc(&fd0)) < 0 || (r = sys_page_alloc(0, fd0, PTE_P | PTE_W | PTE_U | PTE_SHARE)) < 0)
 		goto err;
 
-	if ((r = fd_alloc(&fd1)) < 0
-	    || (r = sys_page_alloc(0, fd1, PTE_P|PTE_W|PTE_U|PTE_SHARE)) < 0)
+	if ((r = fd_alloc(&fd1)) < 0 || (r = sys_page_alloc(0, fd1, PTE_P | PTE_W | PTE_U | PTE_SHARE)) < 0)
 		goto err1;
 
 	// allocate the pipe structure as first data page in both
 	va = fd2data(fd0);
-	if ((r = sys_page_alloc(0, va, PTE_P|PTE_W|PTE_U|PTE_SHARE)) < 0)
+	if ((r = sys_page_alloc(0, va, PTE_P | PTE_W | PTE_U | PTE_SHARE)) < 0)
 		goto err2;
-	if ((r = sys_page_map(0, va, 0, fd2data(fd1), PTE_P|PTE_W|PTE_U|PTE_SHARE)) < 0)
+	if ((r = sys_page_map(0, va, 0, fd2data(fd1), PTE_P | PTE_W | PTE_U | PTE_SHARE)) < 0)
 		goto err3;
 
 	// set up fd structures
@@ -62,13 +60,13 @@ pipe(int pfd[2])
 	pfd[1] = fd2num(fd1);
 	return 0;
 
-    err3:
+err3:
 	sys_page_unmap(0, va);
-    err2:
+err2:
 	sys_page_unmap(0, fd1);
-    err1:
+err1:
 	sys_page_unmap(0, fd0);
-    err:
+err:
 	return r;
 }
 
@@ -77,7 +75,8 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 {
 	int n, nn, ret;
 
-	while (1) {
+	while (1)
+	{
 		n = thisenv->env_runs;
 		ret = pageref(fd) == pageref(p);
 		nn = thisenv->env_runs;
@@ -88,8 +87,7 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	}
 }
 
-int
-pipeisclosed(int fdnum)
+int pipeisclosed(int fdnum)
 {
 	struct Fd *fd;
 	struct Pipe *p;
@@ -97,7 +95,7 @@ pipeisclosed(int fdnum)
 
 	if ((r = fd_lookup(fdnum, &fd)) < 0)
 		return r;
-	p = (struct Pipe*) fd2data(fd);
+	p = (struct Pipe *)fd2data(fd);
 	return _pipeisclosed(fd, p);
 }
 
@@ -108,14 +106,16 @@ devpipe_read(struct Fd *fd, void *vbuf, size_t n)
 	size_t i;
 	struct Pipe *p;
 
-	p = (struct Pipe*)fd2data(fd);
+	p = (struct Pipe *)fd2data(fd);
 	if (debug)
 		cprintf("[%08x] devpipe_read %08x %d rpos %d wpos %d\n",
-			thisenv->env_id, uvpt[PGNUM(p)], n, p->p_rpos, p->p_wpos);
+				thisenv->env_id, uvpt[PGNUM(p)], n, p->p_rpos, p->p_wpos);
 
 	buf = vbuf;
-	for (i = 0; i < n; i++) {
-		while (p->p_rpos == p->p_wpos) {
+	for (i = 0; i < n; i++)
+	{
+		while (p->p_rpos == p->p_wpos)
+		{
 			// pipe is empty
 			// if we got any data, return it
 			if (i > 0)
@@ -143,14 +143,16 @@ devpipe_write(struct Fd *fd, const void *vbuf, size_t n)
 	size_t i;
 	struct Pipe *p;
 
-	p = (struct Pipe*) fd2data(fd);
+	p = (struct Pipe *)fd2data(fd);
 	if (debug)
 		cprintf("[%08x] devpipe_write %08x %d rpos %d wpos %d\n",
-			thisenv->env_id, uvpt[PGNUM(p)], n, p->p_rpos, p->p_wpos);
+				thisenv->env_id, uvpt[PGNUM(p)], n, p->p_rpos, p->p_wpos);
 
 	buf = vbuf;
-	for (i = 0; i < n; i++) {
-		while (p->p_wpos >= p->p_rpos + sizeof(p->p_buf)) {
+	for (i = 0; i < n; i++)
+	{
+		while (p->p_wpos >= p->p_rpos + sizeof(p->p_buf))
+		{
 			// pipe is full
 			// if all the readers are gone
 			// (it's only writers like us now),
@@ -174,7 +176,7 @@ devpipe_write(struct Fd *fd, const void *vbuf, size_t n)
 static int
 devpipe_stat(struct Fd *fd, struct Stat *stat)
 {
-	struct Pipe *p = (struct Pipe*) fd2data(fd);
+	struct Pipe *p = (struct Pipe *)fd2data(fd);
 	strcpy(stat->st_name, "<pipe>");
 	stat->st_size = p->p_wpos - p->p_rpos;
 	stat->st_isdir = 0;
@@ -185,7 +187,6 @@ devpipe_stat(struct Fd *fd, struct Stat *stat)
 static int
 devpipe_close(struct Fd *fd)
 {
-	(void) sys_page_unmap(0, fd);
+	(void)sys_page_unmap(0, fd);
 	return sys_page_unmap(0, fd2data(fd));
 }
-
