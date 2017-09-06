@@ -300,7 +300,6 @@ int fstat(int fdnum, struct Stat *stat)
 int stat(const char *path, struct Stat *stat)
 {
 	int fd, r;
-
 	if ((fd = open(path, O_RDONLY)) < 0)
 		return fd;
 	r = fstat(fd, stat);

@@ -1,8 +1,14 @@
-# JOS lab
+# JOS
+
+![](./lab_record/graph.png)
+
+
 
 ## 关于
 
-课程网站 [MIT 6.828 website](https://pdos.csail.mit.edu/6.828/2016/)
+[MIT 6.828 website](https://pdos.csail.mit.edu/6.828/2016/)
+
+本项目在完成`JOS`的基础上实现一些有趣的东西。
 
 记录文档见`./lab_record`
 
@@ -50,7 +56,9 @@
   - `IPC`进程间通讯
   - 用户空间异常处理栈设置
 - 支持页错误用户空间处理
-- 支持简易文件系统
+- 支持简易文件系统 （CS结构）
+- 支持文件描述符
+- 支持`pipe`
 - 用户空间工具
   - `sh`简易`shell`
 

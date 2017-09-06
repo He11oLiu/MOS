@@ -1,4 +1,4 @@
-#include <inc/lib.h>
+ #include <inc/lib.h>
 
 void
 usage(void)
