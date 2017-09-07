@@ -66,7 +66,6 @@ void umain(int argc, char **argv)
 {
 	int i;
 	struct Argstate args;
-	char path[200];
 
 	argstart(&argc, argv, &args);
 	while ((i = argnext(&args)) >= 0)
@@ -83,9 +82,7 @@ void umain(int argc, char **argv)
 
 	if (argc == 1)
 	{
-		getcwd(path,200);
-		printf("cur workpath %s\n",path);
-		ls((const char *)path,"");
+		ls((const char *)getcwd(NULL,-1),"");
 	}
 	else
 	{

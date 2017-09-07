@@ -18,7 +18,10 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/lsfd \
 			$(OBJDIR)/user/sh \
 			$(OBJDIR)/user/hello \
-			$(OBJDIR)/user/pwd
+			$(OBJDIR)/user/pwd	\
+			$(OBJDIR)/user/mkdir \
+			$(OBJDIR)/user/touch	\
+			$(OBJDIR)/user/msh
 
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/lorem \

@@ -103,6 +103,7 @@ KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
 
 # My Own Binary files
 KERN_BINFILES +=	user/msh		\
+					user/sh 		\
 					fs/fs
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))

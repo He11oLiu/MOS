@@ -133,6 +133,8 @@ fork(void)
 	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
 		panic("sys_env_set_status fail: %e\n", r);
 	// cprintf("Parent finished child %08x\n",envid);
+	if ((r = sys_env_set_workpath(envid, getcwd(NULL, -1))) < 0)
+		panic("sys_env_set_workpath: %e", r);
 	return envid;
 }
 

@@ -93,10 +93,9 @@ int spawn(const char *prog, const char **argv)
 	if (readn(fd, elf_buf, sizeof(elf_buf)) != sizeof(elf_buf) || elf->e_magic != ELF_MAGIC)
 	{
 		close(fd);
-		cprintf("elf magic %08x want %08x\n", elf->e_magic, ELF_MAGIC);
 		return -E_NOT_EXEC;
 	}
-
+	
 	// Create new child environment
 	if ((r = sys_exofork()) < 0)
 		return r;
@@ -136,6 +135,8 @@ int spawn(const char *prog, const char **argv)
 	if ((r = sys_env_set_status(child, ENV_RUNNABLE)) < 0)
 		panic("sys_env_set_status: %e", r);
 
+	if ((r = sys_env_set_workpath(child, getcwd(NULL, -1))) < 0)
+		panic("sys_env_set_workpath: %e", r);
 	return child;
 
 error:

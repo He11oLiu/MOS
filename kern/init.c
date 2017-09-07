@@ -45,11 +45,6 @@ void i386_init()
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	// cprintf("6828 decimal is %o octal!\n", 6828);
-	// cprintf("123 in hex is %#x\n",123);
-	// cprintf("123 %%5  [%5d]\r\n",123);
-	// cprintf("123 %%-5 [%-5d]\r\n",123);
-
 	// Lab 2 memory management initialization functions
 	mem_init();
 
@@ -60,15 +55,15 @@ void i386_init()
 	// init graph
 	graph_init();
 
-	// Lab 3 user environment initialization functions
+	// user environment initialization functions
 	env_init();
 	trap_init();
 
-	// Lab 4 multiprocessor initialization functions
+	// multiprocessor initialization functions
 	mp_init();
 	lapic_init();
 
-	// Lab 4 multitasking initialization functions
+	// multitasking initialization functions
 	pic_init();
 
 	// Acquire the big kernel lock before waking up APs

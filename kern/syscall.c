@@ -398,9 +398,13 @@ sys_ipc_recv(void *dstva)
 // change work path
 // return 0 on success.
 static int
-sys_chdir(const char * path)
+sys_env_set_workpath(envid_t envid, const char *path)
 {
-	strcpy((char *)curenv->workpath,path);
+	struct Env *e;
+	int ret = envid2env(envid, &e, 1);
+	if (ret != 0)
+		return ret;
+	strcpy((char *)e->workpath, path);
 	return 0;
 }
 
@@ -446,8 +450,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_env_set_trapframe:
 		return sys_env_set_trapframe((envid_t)a1,
 									 (struct Trapframe *)a2);
-	case SYS_chdir:
-		return sys_chdir((const char *)a1);
+	case SYS_env_set_workpath:
+		return sys_env_set_workpath((envid_t)a1, (const char *)a2);
 	case NSYSCALLS:
 	default:
 		return -E_INVAL;

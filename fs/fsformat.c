@@ -31,7 +31,7 @@ typedef int bool;
 #include <inc/mmu.h>
 #include <inc/fs.h>
 
-#define ROUNDUP(n, v) ((n) - 1 + (v) - ((n) - 1) % (v))
+#define ROUNDUP(n, v) ((n)-1 + (v) - ((n)-1) % (v))
 #define MAX_DIR_ENTS 128
 
 struct Dir
@@ -46,8 +46,7 @@ char *diskmap, *diskpos;
 struct Super *super;
 uint32_t *bitmap;
 
-void
-panic(const char *fmt, ...)
+void panic(const char *fmt, ...)
 {
 	va_list ap;
 
@@ -58,11 +57,11 @@ panic(const char *fmt, ...)
 	abort();
 }
 
-void
-readn(int f, void *out, size_t n)
+void readn(int f, void *out, size_t n)
 {
 	size_t p = 0;
-	while (p < n) {
+	while (p < n)
+	{
 		ssize_t m = read(f, out + p, n - p);
 		if (m < 0)
 			panic("read: %s", strerror(errno));
@@ -75,7 +74,7 @@ readn(int f, void *out, size_t n)
 uint32_t
 blockof(void *pos)
 {
-	return ((char*)pos - diskmap) / BLKSIZE;
+	return ((char *)pos - diskmap) / BLKSIZE;
 }
 
 void *
@@ -88,20 +87,18 @@ alloc(uint32_t bytes)
 	return start;
 }
 
-void
-opendisk(const char *name)
+void opendisk(const char *name)
 {
 	int r, diskfd, nbitblocks;
 
 	if ((diskfd = open(name, O_RDWR | O_CREAT, 0666)) < 0)
 		panic("open %s: %s", name, strerror(errno));
 
-	if ((r = ftruncate(diskfd, 0)) < 0
-	    || (r = ftruncate(diskfd, nblocks * BLKSIZE)) < 0)
+	if ((r = ftruncate(diskfd, 0)) < 0 || (r = ftruncate(diskfd, nblocks * BLKSIZE)) < 0)
 		panic("truncate %s: %s", name, strerror(errno));
 
-	if ((diskmap = mmap(NULL, nblocks * BLKSIZE, PROT_READ|PROT_WRITE,
-			    MAP_SHARED, diskfd, 0)) == MAP_FAILED)
+	if ((diskmap = mmap(NULL, nblocks * BLKSIZE, PROT_READ | PROT_WRITE,
+						MAP_SHARED, diskfd, 0)) == MAP_FAILED)
 		panic("mmap %s: %s", name, strerror(errno));
 
 	close(diskfd);
@@ -119,27 +116,26 @@ opendisk(const char *name)
 	memset(bitmap, 0xFF, nbitblocks * BLKSIZE);
 }
 
-void
-finishdisk(void)
+void finishdisk(void)
 {
 	int r, i;
 
 	for (i = 0; i < blockof(diskpos); ++i)
-		bitmap[i/32] &= ~(1<<(i%32));
+		bitmap[i / 32] &= ~(1 << (i % 32));
 
 	if ((r = msync(diskmap, nblocks * BLKSIZE, MS_SYNC)) < 0)
 		panic("msync: %s", strerror(errno));
 }
 
-void
-finishfile(struct File *f, uint32_t start, uint32_t len)
+void finishfile(struct File *f, uint32_t start, uint32_t len)
 {
 	int i;
 	f->f_size = len;
 	len = ROUNDUP(len, BLKSIZE);
 	for (i = 0; i < len / BLKSIZE && i < NDIRECT; ++i)
 		f->f_direct[i] = start + i;
-	if (i == NDIRECT) {
+	if (i == NDIRECT)
+	{
 		uint32_t *ind = alloc(BLKSIZE);
 		f->f_indirect = blockof(ind);
 		for (; i < len / BLKSIZE; ++i)
@@ -147,8 +143,7 @@ finishfile(struct File *f, uint32_t start, uint32_t len)
 	}
 }
 
-void
-startdir(struct File *f, struct Dir *dout)
+void startdir(struct File *f, struct Dir *dout)
 {
 	dout->f = f;
 	dout->ents = malloc(MAX_DIR_ENTS * sizeof *dout->ents);
@@ -166,8 +161,7 @@ diradd(struct Dir *d, uint32_t type, const char *name)
 	return out;
 }
 
-void
-finishdir(struct Dir *d)
+void finishdir(struct Dir *d)
 {
 	int size = d->n * sizeof(struct File);
 	struct File *start = alloc(size);
@@ -177,8 +171,7 @@ finishdir(struct Dir *d)
 	d->ents = NULL;
 }
 
-void
-writefile(struct Dir *dir, const char *name)
+void writefile(struct Dir *dir, const char *name)
 {
 	int r, fd;
 	struct File *f;
@@ -208,19 +201,19 @@ writefile(struct Dir *dir, const char *name)
 	close(fd);
 }
 
-void
-usage(void)
+void usage(void)
 {
 	fprintf(stderr, "Usage: fsformat fs.img NBLOCKS files...\n");
 	exit(2);
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int i;
 	char *s;
 	struct Dir root;
+	struct Dir bin;
+	struct File *f;
 
 	assert(BLKSIZE % sizeof(struct File) == 0);
 
@@ -234,11 +227,13 @@ main(int argc, char **argv)
 	opendisk(argv[1]);
 
 	startdir(&super->s_root, &root);
+	f = diradd(&root, FTYPE_DIR, "bin");
+	startdir(f,&bin);
 	for (i = 3; i < argc; i++)
-		writefile(&root, argv[i]);
+		writefile(&bin, argv[i]);
+	finishdir(&bin);
 	finishdir(&root);
 
 	finishdisk();
 	return 0;
 }
-

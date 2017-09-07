@@ -105,6 +105,7 @@ int serve_open(envid_t envid, struct Fsreq_open *req,
 	struct File *f;
 	int fileid;
 	int r;
+	int type;
 	struct OpenFile *o;
 
 	if (debug)
@@ -123,7 +124,7 @@ int serve_open(envid_t envid, struct Fsreq_open *req,
 	}
 	fileid = r;
 
-	// Open the file
+	// create file
 	if (req->req_omode & O_CREAT)
 	{
 		if ((r = file_create(path, &f)) < 0)
@@ -135,6 +136,19 @@ int serve_open(envid_t envid, struct Fsreq_open *req,
 			return r;
 		}
 	}
+	// create dir
+	else if (req->req_omode & O_MKDIR)
+	{
+		if ((r = dir_create(path, &f)) < 0)
+		{
+			if (!(req->req_omode & O_EXCL) && r == -E_FILE_EXISTS)
+				goto try_open;
+			if (debug)
+				cprintf("file_create failed: %e", r);
+			return r;
+		}
+	}
+	// Open the file
 	else
 	{
 	try_open:
@@ -216,7 +230,7 @@ int serve_read(envid_t envid, union Fsipc *ipc)
 	struct Fsret_read *ret = &ipc->readRet;
 	struct OpenFile *o;
 	int r;
-
+	
 	if (debug)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 	// First, use openfile_lookup to find the relevant open file.
@@ -354,6 +368,6 @@ void umain(int argc, char **argv)
 
 	serve_init();
 	fs_init();
-	fs_test();
+	// fs_test();
 	serve();
 }
