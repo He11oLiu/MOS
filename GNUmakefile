@@ -205,18 +205,6 @@ distclean: realclean
 prep-%:
 	$(V)$(MAKE) "INIT_CFLAGS=${INIT_CFLAGS} -DTEST=`case $* in *_*) echo $*;; *) echo user_$*;; esac`" $(IMAGES)
 
-run-%-nox-gdb: prep-% pre-qemu
-	$(QEMU) -nographic $(QEMUOPTS) -S
-
-run-%-gdb: prep-% pre-qemu
-	$(QEMU) $(QEMUOPTS) -S
-
-run-%-nox: prep-% pre-qemu
-	$(QEMU) -nographic $(QEMUOPTS)
-
-run-%: prep-% pre-qemu
-	$(QEMU) $(QEMUOPTS)
-
 # This magic automatically generates makefile dependencies
 # for header files included from C source files we compile,
 # and keeps those dependencies up-to-date every time we recompile.

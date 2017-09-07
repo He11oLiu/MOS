@@ -99,13 +99,8 @@ void i386_init()
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
-#if defined(TEST)
-	// Don't touch -- used by grading script!
-	ENV_CREATE(TEST, ENV_TYPE_USER);
-#else
 	// Touch all you want.
 	ENV_CREATE(user_msh, ENV_TYPE_USER);
-#endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
 	kbd_intr();
@@ -125,7 +120,6 @@ void i386_init()
 	lock_kernel();
 #endif
 
-	cprintf("Init finish! Sched start...\n");
 	// Schedule and run the first user environment!
 	sched_yield();
 }

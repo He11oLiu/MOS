@@ -128,6 +128,7 @@ void env_init(void)
 		envs[i - 1].env_link = &envs[i];
 		envs[i].env_id = 0;
 		envs[i].env_type = ENV_FREE;
+		strcpy(envs[i].workpath,"/");
 	}
 	envs[i].env_link = NULL;
 

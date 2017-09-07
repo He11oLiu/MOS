@@ -46,7 +46,8 @@ KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
 
 # Binary program images to embed within the kernel.
 # Binary files for LAB3
-KERN_BINFILES :=	user/hello \
+
+# KERN_BINFILES :=	user/hello \
 			user/buggyhello \
 			user/buggyhello2 \
 			user/evilhello \
@@ -60,8 +61,9 @@ KERN_BINFILES :=	user/hello \
 			user/faultwrite \
 			user/faultwritekernel
 
+
 # Binary files for LAB4
-KERN_BINFILES +=	user/idle \
+#KERN_BINFILES +=	user/idle \
 			user/yield \
 			user/dumbfork \
 			user/stresssched \
@@ -79,8 +81,9 @@ KERN_BINFILES +=	user/idle \
 			user/pingpong \
 			user/pingpongs \
 			user/primes
+
 # Binary files for LAB5
-KERN_BINFILES +=	user/faultio\
+# KERN_BINFILES +=	user/faultio\
 	      			user/spawnfaultio\
 	      			user/testfile \
 					user/spawnhello \
@@ -88,7 +91,7 @@ KERN_BINFILES +=	user/faultio\
 					fs/fs
 
 # Binary files for LAB5
-KERN_BINFILES +=	user/testpteshare \
+# KERN_BINFILES +=	user/testpteshare \
 					user/testfdsharing \
 					user/testpipe \
 					user/testpiperace \
@@ -100,7 +103,7 @@ KERN_BINFILES +=	user/testpteshare \
 
 # My Own Binary files
 KERN_BINFILES +=	user/msh		\
-					user/rwlocktest
+					fs/fs
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))

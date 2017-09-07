@@ -395,6 +395,15 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+// change work path
+// return 0 on success.
+static int
+sys_chdir(const char * path)
+{
+	strcpy((char *)curenv->workpath,path);
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -437,6 +446,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_env_set_trapframe:
 		return sys_env_set_trapframe((envid_t)a1,
 									 (struct Trapframe *)a2);
+	case SYS_chdir:
+		return sys_chdir((const char *)a1);
 	case NSYSCALLS:
 	default:
 		return -E_INVAL;
