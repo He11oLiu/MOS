@@ -24,7 +24,7 @@
 
 ### Superblocks
 
-![](./disk.png)
+![](./img/disk.png)
 
 Our file system will have exactly one superblock, which will always be at block 1 on the disk. Its layout is defined by `struct Super` in `inc/fs.h`.
 
@@ -46,7 +46,7 @@ struct Super {
 
 The layout of the meta-data describing a file in our file system is described by `struct File` in `inc/fs.h`. This meta-data includes the file's name, size, type (regular file or directory), and pointers to the blocks comprising the file. As mentioned above, we do not have inodes, so this meta-data is stored in a **directory entry on disk**. Unlike in most "real" file systems, for simplicity we will use this one `File` structure to represent file meta-data as it appears *both on disk and in memory*.
 
-![](./file.png)
+![](./img/file.png)
 
 
 
@@ -905,7 +905,7 @@ JOS文件系统是直接映射到内存空间`DISKMAP`到`DISKMAP + DISKSIZE`这
 
 具体关于文件描述符的设计见下图。
 
-![](./fd.png)
+![](./img/fd.png)
 
 下面就来详细看现有的三个`device`
 

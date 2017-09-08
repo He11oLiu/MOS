@@ -170,7 +170,7 @@ pte_t entry_pgtable[NPTENTRIES] = {
 
 而我们现在的页表需要
 
-![](./4.png)
+![](./img/4.png)
 
 ```
 // A linear address 'la' has a three-part structure as follows:
@@ -185,7 +185,7 @@ pte_t entry_pgtable[NPTENTRIES] = {
 
 现在的虚拟地址空间的分布图如下：
 
-![](./5.png) 
+![](./img/5.png) 
 
 其中`PageInfo`的部分是在`page_init`中进行的初始化。
 
@@ -248,7 +248,7 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 > A C pointer is the "offset" component of the virtual address. In `boot/boot.S`, we installed a Global Descriptor Table (GDT) that effectively disabled segment translation by setting all segment base addresses to 0 and limits to `0xffffffff`.
 
-![](./6.png)
+![](./img/6.png)
 
 > This explains why we needed to give the kernel such a high link address in lab 1: otherwise there would not be enough room in the kernel's virtual address space to map in a user environment below it at the same time.
 

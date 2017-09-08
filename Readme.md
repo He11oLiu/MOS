@@ -1,6 +1,6 @@
 # JOS
 
-![](./lab_record/graph.png)
+![](./documents/img/graph.png)
 
 
 

@@ -11,22 +11,34 @@
 #include <inc/font_ascii.h>
 #include <inc/font_cn.h>
 
-#define PIXEL(x, y) *(graph.vram + x + (y * graph.scrnx))
+#define PIXEL(x, y) *(framebuffer + x + (y * graph.scrnx))
 struct graph_info graph;
+uint8_t *framebuffer;
+// as we haven't implemented malloc
+uint8_t tmpbuf[1024*768];
+
+// initial frambuffer
+void init_framebuffer();
+// update screen
+void update_screen();
 
 void graph_init()
 {
     int i;
     char test_ascii[] = "Draw ascii test : Hello Liu!";
-    char test_cn[] = "中文显示测试：你好，世界！！";
+    char test_cn[] = "中文显示测试：你好，世界！";
     // Init Graph MMIO
     graph.vram = (uint8_t *)mmio_map_region((physaddr_t)graph.vram,
                                             graph.scrnx * graph.scrny);
+
     cprintf("====Graph mode on====\n");
     cprintf("   scrnx = %d\n", graph.scrnx);
     cprintf("   scrny = %d\n", graph.scrny);
     cprintf("MMIO VRAM = %#x\n", graph.vram);
     cprintf("=====================\n");
+
+    // Init framebuffer
+    init_framebuffer();
 
     // Draw Screen
     draw_screen(0xe2);
@@ -39,15 +51,8 @@ int draw_screen(uint8_t color)
 {
     int i;
     for (i = 0; i < graph.scrnx * graph.scrny; i++)
-        *(graph.vram + i) = color;
-    return 0;
-}
-
-int draw_pixel(short x, short y, uint8_t color)
-{
-    if ((x >= graph.scrnx) || (y >= graph.scrny))
-        return -1;
-    PIXEL(x,y) = color;
+        *(framebuffer + i) = color;
+    update_screen();
     return 0;
 }
 
@@ -59,6 +64,7 @@ int draw_rect(short x, short y, short l, short w, uint8_t color)
     for (j = y; j < w; j++)
         for (i = x; i < l; i++)
             PIXEL(i,j) = color;
+    update_screen();
     return 0;
 }
 
@@ -75,6 +81,7 @@ int draw_ascii(short x, short y, char *str, uint8_t color)
                     PIXEL((x + j), (y + i)) = color;
         x += 8;
     }
+    update_screen();
     return k;
 }
 
@@ -98,5 +105,17 @@ int draw_cn(short x, short y, char *str, uint8_t color)
         }
         x += 16;
     }
+    update_screen();
     return 0;
+}
+
+void init_framebuffer(){
+    // framebuffer = (uint8_t *) malloc((size_t)(graph.scrnx*graph.scrny));
+    framebuffer = tmpbuf;
+    if(framebuffer == NULL)
+        panic("Not enough memory for framebuffer!");
+}
+
+void update_screen(){
+    memcpy(graph.vram,framebuffer,graph.scrnx*graph.scrny);
 }

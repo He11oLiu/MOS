@@ -171,7 +171,7 @@ In addition, some space at the very top of the PC's 32-bit physical address spac
 
 The IBM PC starts executing at physical address 0x000ffff0, which is at the very top of the 64KB area reserved for the ROM BIOS.
 
-![](./1.jpg)
+![](./img/1.jpg)
 
 
 
@@ -481,7 +481,7 @@ pa &= ~(SECTSIZE - 1);
 
 `ELFHDR`分布如图
 
-![](./2.png)
+![](./img/2.png)
 
 ```c
 /* file header */
@@ -1003,7 +1003,7 @@ bootstacktop:
 
 作为抽象层接口，其不直接与底层接口接入。先看整理的关系图
 
-![](./3.png)
+![](./img/3.png)
 
 其中最重要的就是`vprintfmt`，作为抽象接口，其可以根据传入的函数指针打印到不同的对象。对于打印到屏幕来说，就是调用`putch`到底层驱动串口和显示器。对于打印到字符串，则利用`sprintpuch`将单个字符保存到字符串。
 

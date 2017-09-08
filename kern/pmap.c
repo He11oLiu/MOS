@@ -608,6 +608,16 @@ mmio_map_region(physaddr_t pa, size_t size)
 	return (void *)(base - size);
 }
 
+void *malloc(size_t size)
+{
+	// struct PageInfo *pp;
+	// int npages;
+	// size = ROUNDUP(size,PGSIZE);
+	// npages = size/PGSIZE;
+	// pp = page_alloc(PTE_P|PTE_W);
+	return NULL;
+}
+
 static uintptr_t user_mem_check_addr;
 
 //

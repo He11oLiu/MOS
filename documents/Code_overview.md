@@ -349,7 +349,7 @@ JOS文件系统是直接映射到内存空间`DISKMAP`到`DISKMAP + DISKSIZE`这
 
 具体关于文件描述符的设计见下图。
 
-![](./fd.png)
+![](./img/fd.png)
 
 下面就来详细看现有的三个`device`
 

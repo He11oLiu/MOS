@@ -1,6 +1,6 @@
 # JOS Graph
 
-![](./graph.png)
+![](./img/graph.png)
 
 
 
