@@ -32,14 +32,14 @@ KERN_SRCFILES :=	kern/entry.S \
 			lib/readline.c \
 			lib/string.c
 
-# Source files for LAB4
 KERN_SRCFILES +=	kern/mpentry.S \
 			kern/mpconfig.c \
 			kern/lapic.c \
 			kern/spinlock.c	\
 			kern/rwlock.c	\
 			kern/prwlock.c	\
-			kern/graph.c
+			kern/graph.c	\
+			kern/time.c
 
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))

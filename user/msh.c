@@ -13,7 +13,8 @@ void umain(int argc, char **argv)
 {
     int r, interactive, echocmds;
     struct Argstate args;
-    char prompt[BUFSIZ];
+    struct tm time;
+    char path[MAXPATH];
     char *buf;
 
     echocmds = 0;
@@ -56,9 +57,11 @@ void umain(int argc, char **argv)
     while (1)
     {
         printf("\n");
-        getcwd(prompt, BUFSIZ);
-        snprintf(prompt, BUFSIZ, "%s\n$ ", prompt);
-        buf = readline(prompt);
+        sys_gettime(&time);
+        getcwd(path, MAXPATH);
+        printf("# msh in %s ",path);
+        printf("[%2d:%2d:%2d]\n",time.tm_hour, time.tm_min, time.tm_sec);
+        buf = readline("$ ");
         if (buf == NULL)
             exit();
         if (buf[0] == '#')

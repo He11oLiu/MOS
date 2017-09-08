@@ -19,6 +19,7 @@ enum {
 	SYS_ipc_recv,
 	SYS_getcwd,
 	SYS_env_set_workpath,
+	SYS_gettime,
 	NSYSCALLS
 };
 

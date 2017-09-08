@@ -109,3 +109,8 @@ int sys_env_set_workpath(envid_t envid, const char *path)
 {
 	return syscall(SYS_env_set_workpath, 0, (uint32_t)envid, (uint32_t)path, 0, 0, 0);
 }
+
+int sys_gettime(struct tm *tm)
+{
+	return syscall(SYS_gettime, 0, (uint32_t)tm, 0, 0, 0, 0);
+}

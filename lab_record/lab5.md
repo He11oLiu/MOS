@@ -762,7 +762,7 @@ The shell doesn't support I/O redirection. It would be nice to run sh <script in
 - 再上面就是文件系统服务器，通过调用`file_read`实现功能了。
 - 客户端通过对需求打包，发送`IPC`给文件系统服务器，即可实现读／写文件的功能。
 
-## 文件系统 Overview
+## 文件系统&文件描述符 Overview
 
 JOS文件系统是直接映射到内存空间`DISKMAP`到`DISKMAP + DISKSIZE`这块空间。故其支持的文件系统最大为3GB.
 

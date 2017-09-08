@@ -165,7 +165,9 @@ runit:
 
     // Spawn the command!
     if ((r = spawn(argv[0], (const char **)argv)) < 0)
+    {
         cprintf("spawn %s: %e\n", argv[0], r);
+    }
 
     // In the parent, close all file descriptors and wait for the
     // spawned command to exit.
@@ -284,7 +286,6 @@ void umain(int argc, char **argv)
     int r, interactive, echocmds;
     struct Argstate args;
     char *buf;
-    char prompt[BUFSIZ];
 
     echocmds = 0;
     argstart(&argc, argv, &args);
@@ -325,15 +326,15 @@ void umain(int argc, char **argv)
 
     while (1)
     {
-        getcwd(prompt, BUFSIZ);
-        snprintf(prompt, BUFSIZ, "%s\n$ ", prompt);
-        buf = readline(prompt);
+        buf = readline("$ ");
         if (buf == NULL)
         {
             if (debug)
                 cprintf("EXITING\n");
             exit(); // end of file
         }
+        if (strcmp(buf, "exit") == 0)
+            exit();
         if (debug)
             cprintf("LINE: %s\n", buf);
         if (buf[0] == '#')

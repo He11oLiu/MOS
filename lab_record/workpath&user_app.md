@@ -586,4 +586,85 @@ alloc(uint32_t bytes)
 
 
 
-![](./msh.png)
+
+## 获取时间
+
+又新增一个`syscall`，这里不再累述，利用`mc146818_read`获取`cmos`时间即可。
+
+```c
+int gettime(struct tm *tm)
+{
+    unsigned datas, datam, datah;
+    int i;
+    tm->tm_sec = BCD_TO_BIN(mc146818_read(0));
+    tm->tm_min = BCD_TO_BIN(mc146818_read(2));
+    tm->tm_hour = BCD_TO_BIN(mc146818_read(4)) + TIMEZONE;
+    tm->tm_wday = BCD_TO_BIN(mc146818_read(6));
+    tm->tm_mday = BCD_TO_BIN(mc146818_read(7));
+    tm->tm_mon = BCD_TO_BIN(mc146818_read(8));
+    tm->tm_year = BCD_TO_BIN(mc146818_read(9));
+    return 0;
+}
+```
+
+
+
+## 实机运行输出
+
+```shell
+check_page_free_list() succeeded!
+check_page_alloc() succeeded!
+check_page() succeeded!
+check_kern_pgdir() succeeded!
+check_page_free_list() succeeded!
+check_page_installed_pgdir() succeeded!
+====Graph mode on====
+   scrnx = 1024
+   scrny = 768
+MMIO VRAM = 0xef803000
+=====================
+SMP: CPU 0 found 1 CPU(s)
+enabled interrupts: 1 2 4
+FS is running
+FS can do I/O
+Device 1 presence: 1
+block cache is good
+superblock is good
+bitmap is good
+
+# msh in / [12: 4:28]
+$ cd documents
+
+# msh in /documents/ [12: 4:35]
+$ echo hello liu > hello
+
+# msh in /documents/ [12: 4:45]
+$ cat hello
+hello liu
+
+# msh in /documents/ [12: 4:49]
+$ cd /bin
+
+# msh in /bin/ [12: 4:54]
+$ ls -l -F
+-          37 newmotd
+-          92 motd
+-         447 lorem
+-         132 script
+-        2916 testshell.key
+-         113 testshell.sh
+-       20308 cat
+-       20076 echo
+-       20508 ls
+-       20332 lsfd
+-       25060 sh
+-       20076 hello
+-       20276 pwd
+-       20276 mkdir
+-       20280 touch
+-       29208 msh
+
+# msh in /bin/ [12: 4:57]
+$ 
+```
+
