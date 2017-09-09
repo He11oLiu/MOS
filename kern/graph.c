@@ -15,7 +15,7 @@
 struct graph_info graph;
 uint8_t *framebuffer;
 // as we haven't implemented malloc
-uint8_t tmpbuf[1024*768];
+// uint8_t tmpbuf[1024*768];
 
 // initial frambuffer
 void init_framebuffer();
@@ -26,7 +26,7 @@ void graph_init()
 {
     int i;
     char test_ascii[] = "Draw ascii test : Hello Liu!";
-    char test_cn[] = "ÖÐÎÄÏÔÊ¾²âÊÔ£ºÄãºÃ£¬ÊÀ½ç£¡";
+    char test_cn[] = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ô£ï¿½ï¿½ï¿½Ã£ï¿½ï¿½ï¿½ï¿½ç£¡";
     // Init Graph MMIO
     graph.vram = (uint8_t *)mmio_map_region((physaddr_t)graph.vram,
                                             graph.scrnx * graph.scrny);
@@ -110,8 +110,19 @@ int draw_cn(short x, short y, char *str, uint8_t color)
 }
 
 void init_framebuffer(){
-    // framebuffer = (uint8_t *) malloc((size_t)(graph.scrnx*graph.scrny));
-    framebuffer = tmpbuf;
+    void *malloc_free_test;
+    if((framebuffer = (uint8_t *) kmalloc((size_t)(graph.scrnx*graph.scrny)))== NULL)
+        panic("kmalloc error!");
+    malloc_free_test = framebuffer;
+    kfree(framebuffer,(size_t)(graph.scrnx*graph.scrny));    
+    if((framebuffer = (uint8_t *) kmalloc((size_t)(graph.scrnx*graph.scrny)))== NULL)
+        panic("kmalloc error!");
+    if(malloc_free_test == framebuffer)
+        cprintf("kmalloc/kfree check success\n");
+    else
+        panic("kmalloc/kfree error!\n");
+
+    // framebuffer = tmpbuf;
     if(framebuffer == NULL)
         panic("Not enough memory for framebuffer!");
 }

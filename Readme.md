@@ -19,7 +19,7 @@
 - [x] lab1 Booting a PC
 - [x] lab1 challenge: VGA GUI
 - [x] lab2 Memory Management
-- [ ] lab2 challenge
+- [x] lab2 challenge
 - [x] lab3 User Environments
 - [x] lab3 challenge: single step debug
 - [ ] lab3 challenge: sysenter & sysexit
@@ -62,6 +62,8 @@
 - 用户空间工具
   - `sh`简易`shell`
 
+  ​
+
 
 
 
@@ -87,6 +89,7 @@
   - `msh` 更高级的`shell` 还未完全完工 支持`cd` 支持默认二进制路径为 `bin`
 - 调整目标磁盘生成工具
 - 支持从RTC读取时间
+- 支持`kmalloc/kfree`，支持分配连续空间
 
 
 

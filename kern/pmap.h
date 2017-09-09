@@ -55,7 +55,9 @@ void mem_init(void);
 
 void page_init(void);
 struct PageInfo *page_alloc(int alloc_flags);
+struct PageInfo * npages_alloc(unsigned int n,int alloc_flags);
 void page_free(struct PageInfo *pp);
+void npages_free(struct PageInfo *pp, unsigned int n);
 int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm);
 void page_remove(pde_t *pgdir, void *va);
 struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store);
@@ -68,7 +70,8 @@ void *mmio_map_region(physaddr_t pa, size_t size);
 int user_mem_check(struct Env *env, const void *va, size_t len, int perm);
 void user_mem_assert(struct Env *env, const void *va, size_t len, int perm);
 
-void *malloc(size_t size);
+void *kmalloc(size_t size);
+void kfree(void *kva,size_t size);
 
 
 static inline physaddr_t

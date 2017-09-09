@@ -172,8 +172,18 @@ void mem_init(void)
 	page_init();
 
 	check_page_free_list(1);
-	check_page_alloc();
-	check_page();
+	// check_page_alloc();
+	// check_page();
+
+	// test free list
+	// struct PageInfo *alloc1 = page_alloc(1);
+	// struct PageInfo *alloc2 = page_alloc(1);
+	// struct PageInfo *alloc3 = page_alloc(1);
+	// cprintf("alloc 1 at %d\n", (int)(alloc1 - pages));
+	// cprintf("alloc 2 at %d\n", (int)(alloc2 - pages));
+	// cprintf("alloc 3 at %d\n", (int)(alloc3 - pages));
+	// page_free(alloc1);
+	// page_free(alloc3);
 
 	// Now we set up virtual memory
 
@@ -227,7 +237,7 @@ void mem_init(void)
 	mem_init_mp();
 
 	// Check that the initial page directory has been set up correctly.
-	check_kern_pgdir();
+	// check_kern_pgdir();
 
 	// Switch from the minimal entry page directory to the full kern_pgdir
 	// page table we just created.	Our instruction pointer should be
@@ -238,7 +248,7 @@ void mem_init(void)
 	// kern_pgdir wrong.
 	lcr3(PADDR(kern_pgdir));
 
-	check_page_free_list(0);
+	// check_page_free_list(0);
 
 	// entry.S set the really important flags in cr0 (including enabling
 	// paging).  Here we configure the rest of the flags that we care about.
@@ -248,7 +258,7 @@ void mem_init(void)
 	lcr0(cr0);
 
 	// Some more checks, only possible after kern_pgdir is installed.
-	check_page_installed_pgdir();
+	// check_page_installed_pgdir();
 }
 
 // Modify mappings in kern_pgdir to support SMP
@@ -358,18 +368,66 @@ void page_init(void)
 // Returns NULL if out of free memory.
 //
 // Hint: use page2kva and memset
-struct PageInfo *
-page_alloc(int alloc_flags)
+struct PageInfo *page_alloc(int alloc_flags)
 {
+	// struct PageInfo *pp;
+	// if (page_free_list == NULL)
+	// 	return NULL;
+	// if (alloc_flags & ALLOC_ZERO)
+	// 	memset(page2kva(page_free_list), 0, PGSIZE);
+	// pp = page_free_list;
+	// page_free_list = page_free_list->pp_link;
+	// pp->pp_link = NULL;
+	// return pp;
+	return npages_alloc(1, alloc_flags);
+}
+
+struct PageInfo *npages_alloc(unsigned int n, int alloc_flags)
+{
+	struct PageInfo *cur;
+	struct PageInfo *prev;
 	struct PageInfo *pp;
+	struct PageInfo *pp_prev;
+	unsigned int i;
+	unsigned int consecutive = 1;
 	if (page_free_list == NULL)
 		return NULL;
-	if (alloc_flags & ALLOC_ZERO)
-		memset(page2kva(page_free_list), 0, PGSIZE);
 	pp = page_free_list;
-	page_free_list = page_free_list->pp_link;
-	pp->pp_link = NULL;
-	return pp;
+	pp_prev = page_free_list;
+	prev = page_free_list;
+	cur = page_free_list->pp_link;
+
+	// cprintf("alloc find from %d\n", (int)(prev - pages));
+	while (consecutive < n && cur != NULL)
+	{
+		if ((int)(cur - pages) != (int)(prev - pages) - 1)
+		{
+			consecutive = 1;
+			pp_prev = prev;
+			pp = cur;
+		}
+		else
+			consecutive++;
+		prev = cur;
+		cur = cur->pp_link;
+	}
+	if (consecutive == n)
+	{
+		// cprintf("alloc end at %d\n", (int)(prev - pages));
+		// alloc flags
+		if (alloc_flags & ALLOC_ZERO)
+			memset(page2kva(prev), 0, n * PGSIZE);
+		// update page_free_list
+		if (pp == page_free_list)
+			page_free_list = cur;
+		else
+			pp_prev->pp_link = cur;
+		// clear pp link
+		for (i = 0; i < n; i++)
+			(prev + i)->pp_link = NULL;
+		return prev;
+	}
+	return NULL;
 }
 
 //
@@ -378,14 +436,44 @@ page_alloc(int alloc_flags)
 //
 void page_free(struct PageInfo *pp)
 {
-	// Fill this function in
-	// Hint: You may want to panic if pp->pp_ref is nonzero or
-	// pp->pp_link is not NULL.
-	if (pp->pp_ref || pp->pp_link != NULL)
-		panic("page_free error:pp->ref!=0 or pp->pp_link != NULL");
-	pp->pp_link = page_free_list;
-	pp->pp_ref = 0;
-	page_free_list = pp;
+	npages_free(pp, 1);
+}
+
+void npages_free(struct PageInfo *pp, unsigned int n)
+{
+	struct PageInfo *cur, *prev;
+	unsigned int i;
+	for (i = 0; i < n; i++)
+	{
+		if ((pp + i)->pp_ref)
+			panic("npages_free error: (pp+%d)->pp_ref != 0", i);
+		if ((pp + i)->pp_link != NULL)
+			panic("npages_free error: (pp+%d)->pp_link != NULL", i);
+	}
+	if (page2pa(page_free_list) < page2pa(pp))
+	{
+		cur = page_free_list;
+		page_free_list = pp + n - 1;
+		pp->pp_link = cur;
+		for (i = 1; i < n; i++)
+			(pp + i)->pp_link = pp + i - 1;
+		return;
+	}
+	cur = page_free_list;
+	prev = page_free_list;
+	while (page2pa(cur) > page2pa(pp))
+	{
+		prev = cur;
+		if ((cur = cur->pp_link) == NULL)
+			break;
+	}
+	// cprintf("find prev %d cur %d\n", (int)(prev - pages), (int)(cur - pages));
+
+	prev->pp_link = pp + n - 1;
+	pp->pp_link = cur;
+	for (i = 1; i < n; i++)
+		(pp + i)->pp_link = pp + i - 1;
+	return;
 }
 
 //
@@ -608,14 +696,24 @@ mmio_map_region(physaddr_t pa, size_t size)
 	return (void *)(base - size);
 }
 
-void *malloc(size_t size)
+void *kmalloc(size_t size)
 {
-	// struct PageInfo *pp;
-	// int npages;
-	// size = ROUNDUP(size,PGSIZE);
-	// npages = size/PGSIZE;
-	// pp = page_alloc(PTE_P|PTE_W);
-	return NULL;
+	struct PageInfo *pp;
+	int npages;
+	size = ROUNDUP(size, PGSIZE);
+	npages = size / PGSIZE;
+	if ((pp = npages_alloc(npages, 1)) == NULL)
+		return NULL;
+	return page2kva(pp);
+}
+
+void kfree(void *kva, size_t size)
+{
+	struct PageInfo *pp = pa2page(PADDR(kva));
+	int npages;
+	size = ROUNDUP(size, PGSIZE);
+	npages = size / PGSIZE;
+	npages_free(pp, npages);
 }
 
 static uintptr_t user_mem_check_addr;
