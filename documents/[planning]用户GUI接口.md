@@ -9,15 +9,29 @@
 ```c
 uint8_t *framebuffer;
 void init_framebuffer(){
-  	framebuffer = (uint32_t) malloc(graph_info->scrnx*graph_info->scrny);
+  	if((framebuffer = (uint8_t *) kmalloc((size_t)(graph.scrnx*graph.scrny)))== NULL)
+        panic("Not enough memory for framebuffer!");
 }
 
 void update_screen(){
-    memcpy(graph_info->vram,framebuffer,graph_info->scrnx*graph_info->scrny);
+    memcpy(graph.vram,framebuffer,graph.scrnx*graph.scrny);
 }
 ```
 
-而从一个单一的应用程序角度来看，应分配一个单独的画布，然后选择在一个位置显示。
+经过实现`kmalloc`与`kfree`，已经可以分配这个缓冲区，并直接向缓冲区写入，最后再进行`update`
+
+```c
+#define PIXEL(x, y) *(framebuffer + x + (y * graph.scrnx))
+int draw_xx()
+{
+	xxx;
+	update_screen();
+}
+```
+
+
+
+从一个单一的应用程序角度来看，应分配一个单独的画布，然后选择在一个位置显示。
 
 ```c
 typedef struct canvas
