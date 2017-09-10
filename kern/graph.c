@@ -3,19 +3,12 @@
 #include <inc/x86.h>
 #include <inc/memlayout.h>
 #include <inc/string.h>
-#include <kern/cpu.h>
-#include <kern/prwlock.h>
-#include <kern/sched.h>
 #include <kern/graph.h>
 #include <kern/pmap.h>
-#include <inc/font_ascii.h>
-#include <inc/font_cn.h>
 
 #define PIXEL(x, y) *(framebuffer + x + (y * graph.scrnx))
 struct graph_info graph;
 uint8_t *framebuffer;
-// as we haven't implemented malloc
-// uint8_t tmpbuf[1024*768];
 
 // initial frambuffer
 void init_framebuffer();
@@ -26,7 +19,8 @@ void graph_init()
 {
     int i;
     char test_ascii[] = "Draw ascii test : Hello Liu!";
-    char test_cn[] = "ä½ å¥½ä¸–ç•Œï¼";
+    char test_cn[] = "ÖÐÎÄÏÔÊ¾²âÊÔ£¡";
+    // {0xD6,0xD0,0xCE,0xC4,0x00};
     // Init Graph MMIO
     graph.vram = (uint8_t *)mmio_map_region((physaddr_t)graph.vram,
                                             graph.scrnx * graph.scrny);
@@ -42,9 +36,29 @@ void graph_init()
 
     // Draw Screen
     draw_screen(0xe2);
-    draw_rect(20, 20, 350, 150, 0x22);
-    draw_ascii(50, 50, test_ascii, 0xff);
-    draw_cn(50, 100, test_cn, 0xff);
+
+    // canvas test
+    canvas_t canvas_test;
+    canvas_init(300, 200, &canvas_test);
+    uint8_t testcanvas[60000];
+    canvas_test.data = (uint8_t *)testcanvas;
+    canvas_draw_bg(0x22,&canvas_test);
+    canvas_draw_ascii((uint16_t)2, (uint16_t)2, test_ascii, (uint8_t)0xff, &canvas_test);
+    canvas_draw_cn((uint16_t)2, (uint16_t)50, test_cn, (uint8_t)0xff, &canvas_test);
+    draw_canvas(500, 500, &canvas_test);
+}
+
+int draw_canvas(uint16_t x, uint16_t y, canvas_t *canvas)
+{
+    int i, j;
+    int width = (x + canvas->width) > graph.scrnx ? graph.scrnx : (x + canvas->width);
+    int height = (y + canvas->height) > graph.scrny ? graph.scrny : (y + canvas->height);
+    cprintf("width %d height %d\n",width,height);
+    for (j = y; j < height; j++)
+        for (i = x; i < width; i++)
+            PIXEL(i, j) = *(canvas->data + (i - x) + (j - y) * canvas->width);
+    update_screen();
+    return 0;
 }
 
 int draw_screen(uint8_t color)
@@ -56,77 +70,22 @@ int draw_screen(uint8_t color)
     return 0;
 }
 
-int draw_rect(short x, short y, short l, short w, uint8_t color)
+void init_framebuffer()
 {
-    int i, j;
-    w = (y + w) > graph.scrny ? graph.scrny : (y + w);
-    l = (x + l) > graph.scrnx ? graph.scrnx : (x + l);
-    for (j = y; j < w; j++)
-        for (i = x; i < l; i++)
-            PIXEL(i,j) = color;
-    update_screen();
-    return 0;
-}
-
-int draw_ascii(short x, short y, char *str, uint8_t color)
-{
-    char *font;
-    int i, j, k = 0;
-    for (k = 0; str[k] != 0; k++)
-    {
-        font = (char *)(ascii_8_16 + (str[k] - 0x20) * 16);
-        for (i = 0; i < 16; i++)
-            for (j = 0; j < 8; j++)
-                if ((font[i] << j) & 0x80)
-                    PIXEL((x + j), (y + i)) = color;
-        x += 8;
-    }
-    update_screen();
-    return k;
-}
-
-int draw_cn(short x, short y, char *str, uint8_t color)
-{
-    uint16_t font;
-    int i, j, k;
-    int offset;
-    for (k = 0; str[k] != 0; k += 2)
-    {
-        offset = ((char)(str[k] - 0xa0 - 1) * 94 +
-                  ((char)(str[k + 1] - 0xa0) - 1)) *
-                 32;
-        for (i = 0; i < 16; i++)
-        {
-            font = cn_lib[offset + i * 2] << 8 |
-                   cn_lib[offset + i * 2 + 1];
-            for (j = 0; j < 16; j++)
-                if ((font << j) & 0x8000)
-                    PIXEL((x + j), (y + i)) = color;
-        }
-        x += 16;
-    }
-    update_screen();
-    return 0;
-}
-
-void init_framebuffer(){
     // void *malloc_free_test;
-    if((framebuffer = (uint8_t *) kmalloc((size_t)(graph.scrnx*graph.scrny)))== NULL)
+    if ((framebuffer = (uint8_t *)kmalloc((size_t)(graph.scrnx * graph.scrny))) == NULL)
         panic("Not enough memory for framebuffer!");
     // malloc_free_test = framebuffer;
-    // kfree(framebuffer,(size_t)(graph.scrnx*graph.scrny));    
+    // kfree(framebuffer,(size_t)(graph.scrnx*graph.scrny));
     // if((framebuffer = (uint8_t *) kmalloc((size_t)(graph.scrnx*graph.scrny)))== NULL)
     //     panic("kmalloc error!");
     // if(malloc_free_test == framebuffer)
     //     cprintf("kmalloc/kfree check success\n");
     // else
     //     panic("kmalloc/kfree error!\n");
-
-    // framebuffer = tmpbuf;
-    // if(framebuffer == NULL)
-    //     panic("Not enough memory for framebuffer!");
 }
 
-void update_screen(){
-    memcpy(graph.vram,framebuffer,graph.scrnx*graph.scrny);
+void update_screen()
+{
+    memcpy(graph.vram, framebuffer, graph.scrnx * graph.scrny);
 }

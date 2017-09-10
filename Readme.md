@@ -22,7 +22,6 @@
 - [x] lab2 challenge
 - [x] lab3 User Environments
 - [x] lab3 challenge: single step debug
-- [ ] lab3 challenge: sysenter & sysexit
 - [x] lab4 Preemptive Multitasking
 - [ ] lab4 challenge
 - [x] Lab 5: File system, Spawn and Shell
