@@ -457,14 +457,18 @@ cons_putc(int c)
 {
 	serial_putc(c);
 	lpt_putc(c);
-	// cga_putc(c);
+#ifndef GUI_MODE
+	cga_putc(c);
+#endif
 }
 
 // initialize the console devices
 void
 cons_init(void)
 {
-	// cga_init();
+#ifndef GUI_MODE
+	cga_init();
+#endif
 	kbd_init();
 	serial_init();
 

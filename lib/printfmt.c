@@ -7,6 +7,7 @@
 #include <inc/string.h>
 #include <inc/stdarg.h>
 #include <inc/error.h>
+#include <inc/time.h>
 
 /*
  * Space or zero padding and a field width are supported for the numeric
@@ -110,6 +111,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
 	char padc;
+	struct tm *time;
 
 	while (1) {
 		while ((ch = *(unsigned char *) fmt++) != '%') {
@@ -202,6 +204,16 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 				printfmt(putch, putdat, "%s", p);
 			break;
 
+		// time
+		case 't':
+			time = va_arg(ap,struct tm *);
+			printnum(putch, putdat, time->tm_hour, 10, 2, '0');
+			putch(':',putdat);
+			printnum(putch, putdat, time->tm_min, 10, 2, '0');
+			putch(':',putdat);
+			printnum(putch, putdat, time->tm_sec, 10, 2, '0');
+			break;
+			
 		// string
 		case 's':
 			if ((p = va_arg(ap, char *)) == NULL)

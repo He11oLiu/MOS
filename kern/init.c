@@ -49,11 +49,13 @@ void i386_init()
 	mem_init();
 
 	// get information from boot_info
+
+#ifdef GUI_MODE
 	// must be used after mem_init()
 	get_boot_info();
-
 	// init graph
 	graph_init();
+#endif
 
 	// user environment initialization functions
 	env_init();

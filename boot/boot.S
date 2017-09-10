@@ -45,10 +45,12 @@ seta20.2:
   movb    $0xdf,%al               # 0xdf -> port 0x60
   outb    %al,$0x60               # 0xdf = 11011111
 
+#ifdef GUI_MODE
   sti
   call    getvideomode  
   call    setvideomode  
   cli
+#endif
 
   # Switch from real to protected mode, using a bootstrap GDT
   # and segment translation that makes virtual addresses 
