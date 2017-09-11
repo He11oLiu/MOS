@@ -17,6 +17,8 @@
 #include <kern/prwlock.h>
 #include <kern/graph.h>
 
+#define GUI_MODE
+
 static void boot_aps(void);
 static void get_boot_info(void);
 

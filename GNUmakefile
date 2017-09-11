@@ -15,11 +15,7 @@ ifeq ($(V),0)
 override V = @
 endif
 
--include conf/lab.mk
-
 -include conf/env.mk
-
-LABSETUP ?= ./
 
 TOP = .
 
@@ -33,15 +29,15 @@ TOP = .
 
 # try to infer the correct GCCPREFIX
 ifndef GCCPREFIX
-GCCPREFIX := $(shell if i386-jos-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
-	then echo 'i386-jos-elf-'; \
+GCCPREFIX := $(shell if i386-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
+	then echo 'i386-elf-'; \
 	elif objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
 	then echo ''; \
 	else echo "***" 1>&2; \
 	echo "*** Error: Couldn't find an i386-*-elf version of GCC/binutils." 1>&2; \
-	echo "*** Is the directory with i386-jos-elf-gcc in your PATH?" 1>&2; \
+	echo "*** Is the directory with i386-elf-gcc in your PATH?" 1>&2; \
 	echo "*** If your i386-*-elf toolchain is installed with a command" 1>&2; \
-	echo "*** prefix other than 'i386-jos-elf-', set your GCCPREFIX" 1>&2; \
+	echo "*** prefix other than 'i386-elf-', set your GCCPREFIX" 1>&2; \
 	echo "*** environment variable to that prefix and run 'make' again." 1>&2; \
 	echo "*** To turn off this error, run 'gmake GCCPREFIX= ...'." 1>&2; \
 	echo "***" 1>&2; exit 1; fi)
@@ -76,14 +72,14 @@ NM	:= $(GCCPREFIX)nm
 
 # Native commands
 NCC	:= gcc $(CC_VER) -pipe
-NATIVE_CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -I$(TOP) -MD -Wall
+NATIVE_CFLAGS := $(CFLAGS) $(DEFS) -I$(TOP) -MD -Wall
 TAR	:= gtar
 PERL	:= perl
 
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD
+CFLAGS := $(CFLAGS) $(DEFS) -O1 -fno-builtin -I$(TOP) -MD
 CFLAGS += -fno-omit-frame-pointer
 CFLAGS += -std=gnu99
 CFLAGS += -static
@@ -161,6 +157,8 @@ gdb:
 pre-qemu: .gdbinit
 
 qemu: $(IMAGES) pre-qemu
+	@echo $(QEMU)
+	@echo $(QEMUOPTS)
 	$(QEMU) $(QEMUOPTS)
 
 qemu-nox: $(IMAGES) pre-qemu
@@ -190,12 +188,6 @@ print-gdbport:
 # For deleting the build
 clean:
 	rm -rf $(OBJDIR) .gdbinit jos.in qemu.log
-
-realclean: clean
-	rm -rf lab$(LAB).tar.gz \
-		jos.out $(wildcard jos.out.*) \
-		qemu.pcap $(wildcard qemu.pcap.*) \
-		myapi.key
 
 distclean: realclean
 	rm -rf conf/gcc.mk
