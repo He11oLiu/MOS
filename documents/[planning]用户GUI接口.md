@@ -1,6 +1,6 @@
 # GUI
 
-*本文暂时只是记录一下想法，不一定会选择实现*
+*
 
 ## framebuffer
 
@@ -114,4 +114,102 @@ int canvas_draw_rect(uint16_t x, uint16_t y, uint16_t l, uint16_t w, uint8_t col
 
   但是，这就需要在内存中开辟一片内核和用户均能看到的位置，然后一方写，一方读。这会破坏现有的`memory layout`，实现不够优雅。
 
-所以暂时先放弃实现图形界面，增加操作系统功能，以后有机会再说。
+重新回顾了一下内存分配，内核与用户态数据共享的方法后，决定先就第二个思路实现一个简单的用户内核均可见可读写的`Framebuffer`。
+
+#### 分析如何做才能内核用户均可读写
+
+**首先分析一个之前做过的`pages`，是如何做到用户态可以读，内核态可以写的。**
+
+- 在`mem_init`的时候在在内核空间中分配指定的空间给`pages`
+
+  ```c
+  pages = boot_alloc(sizeof(struct PageInfo) * npages);
+  memset(pages, 0, sizeof(struct PageInfo) * npages);
+  ```
+
+- 利用`boot_map_region`将其映射到内核页表中的`UPAGES`的位置。
+
+  ```c
+  boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U | PTE_P);
+  ```
+
+- 这样内核中依然可以通过`pages`访问页表，而用户程序在`entry`的时候通过给`pages`变量赋予存储位置
+
+  ```
+  	.globl pages
+  	.set pages, UPAGES
+  ```
+
+  也可以通过`pages`变量进行访问。
+
+#### 预留内存用于`framebuffer`
+
+再思考如果需要这么一个`framebuffer`，我们需要放到哪里。仿造上面的`UVPD`，`UPAGES`，等，决定就放在接近`ULIM`的位置。一个`PTSIZE`也远超我们需要的空间，为以后扩展也留下了余量。
+
+```c
+/*
+ * ULIM, MMIOBASE -->  +------------------------------+ 0xef800000
+ *                     |  Cur. Page Table (User R-)   | R-/R-  PTSIZE
+ *    UVPT      ---->  +------------------------------+ 0xef400000
+ *                     |          RO PAGES            | R-/R-  PTSIZE
+ *  FRAMEBUF    ---->  +------------------------------+ 0xef000000
+ *                     |        FRAME BUFFER          | RW/RW  PTSIZE
+ *    UPAGES    ---->  +------------------------------+ 0xeec00000
+ *                     |           RO ENVS            | R-/R-  PTSIZE
+ * UTOP,UENVS ------>  +------------------------------+ 0xee800000
+ */
+
+// User read-only virtual page table (see 'uvpt' below)
+#define UVPT (ULIM - PTSIZE)
+// Read-only copies of the Page structures
+#define UPAGES (UVPT - PTSIZE)
+// Read-write framebuffer
+#define FRAMEBUF (UPAGES - PTSIZE)
+// Read-only copies of the global env structures
+#define UENVS (FRAMEBUF - PTSIZE)
+// #define UENVS (UPAGES - PTSIZE)
+```
+
+#### 什么时候映射到内核的页表？
+
+由于图像初始化在内存初始化之后，需要留一个接口来进行映射。（`boot_map`是隐式函数）
+
+```c
+void map_framebuffer(void *kva)
+{
+	boot_map_region(kern_pgdir, FRAMEBUF, PTSIZE, PADDR(kva), PTE_W | PTE_U | PTE_P);
+}
+```
+
+在分配好内核中的`Framebuffer`就可以开始映射了
+
+```c
+void init_framebuffer()
+{
+    if ((framebuffer = (uint8_t *)kmalloc((size_t)(graph.scrnx * graph.scrny))) == NULL)
+        panic("Not enough memory for framebuffer!");
+    map_framebuffer(framebuffer);
+}
+```
+
+#### 用户程序如何访问？
+
+在`libmain`的时候初始化即可
+
+```c
+	framebuffer = (uint8_t *)FRAMEBUF;
+```
+
+#### 用户态刷新屏幕？
+
+用户程序在写完`frambuffer`后，如何才能刷新屏幕？这又需要一个新的内核调用
+
+```c
+static int sys_updatescreen()
+{
+	update_screen();
+	return 0;
+}
+```
+
+配套的一些代码就不解释了。

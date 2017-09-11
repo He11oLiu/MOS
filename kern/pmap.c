@@ -778,6 +778,11 @@ void user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 	}
 }
 
+void map_framebuffer(void *kva)
+{
+	boot_map_region(kern_pgdir, FRAMEBUF, PTSIZE, PADDR(kva), PTE_W | PTE_U | PTE_P);
+}
+
 // --------------------------------------------------------------
 // Checking functions.
 // --------------------------------------------------------------

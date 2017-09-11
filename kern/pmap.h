@@ -55,7 +55,7 @@ void mem_init(void);
 
 void page_init(void);
 struct PageInfo *page_alloc(int alloc_flags);
-struct PageInfo * npages_alloc(unsigned int n,int alloc_flags);
+struct PageInfo *npages_alloc(unsigned int n, int alloc_flags);
 void page_free(struct PageInfo *pp);
 void npages_free(struct PageInfo *pp, unsigned int n);
 int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm);
@@ -71,8 +71,8 @@ int user_mem_check(struct Env *env, const void *va, size_t len, int perm);
 void user_mem_assert(struct Env *env, const void *va, size_t len, int perm);
 
 void *kmalloc(size_t size);
-void kfree(void *kva,size_t size);
-
+void kfree(void *kva, size_t size);
+void map_framebuffer(void *kva);
 
 static inline physaddr_t
 page2pa(struct PageInfo *pp)

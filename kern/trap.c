@@ -384,17 +384,17 @@ void prw_debug(struct Trapframe *tf)
 {
 #ifdef TESTPRW
 	int needlock = 0;
-	cprintf("====CPU %d in prw debug====\n",cpunum());
-	if(kernel_lock.cpu == thiscpu && kernel_lock.locked == 1)
+	cprintf("====CPU %d in prw debug====\n", cpunum());
+	if (kernel_lock.cpu == thiscpu && kernel_lock.locked == 1)
 	{
 		unlock_kernel();
 		needlock = 1;
 	}
 	prw_wrlock(&lock1);
-	cprintf("====%d gain lock1====\n",cpunum());
+	cprintf("====%d gain lock1====\n", cpunum());
 	prw_wrunlock(&lock1);
-	cprintf("====%d release lock1====\n",cpunum());
-	if(needlock)
+	cprintf("====%d release lock1====\n", cpunum());
+	if (needlock)
 		lock_kernel();
 #endif
 }

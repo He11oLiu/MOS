@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/graph.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -417,6 +418,12 @@ sys_gettime(struct tm *tm)
 	return 0;
 }
 
+static int sys_updatescreen()
+{
+	update_screen();
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -462,7 +469,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_env_set_workpath:
 		return sys_env_set_workpath((envid_t)a1, (const char *)a2);
 	case SYS_gettime:
-		return sys_gettime((struct tm*)a1);
+		return sys_gettime((struct tm *)a1);
+	case SYS_updatescreen:
+		return sys_updatescreen();
 	case NSYSCALLS:
 	default:
 		return -E_INVAL;

@@ -114,3 +114,8 @@ int sys_gettime(struct tm *tm)
 {
 	return syscall(SYS_gettime, 0, (uint32_t)tm, 0, 0, 0, 0);
 }
+
+int sys_updatescreen()
+{
+	return syscall(SYS_updatescreen, 0, 0, 0, 0, 0, 0);
+}

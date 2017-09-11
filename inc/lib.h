@@ -33,6 +33,7 @@ extern const char *binaryname;
 extern const volatile struct Env *thisenv;
 extern const volatile struct Env envs[NENV];
 extern const volatile struct PageInfo pages[];
+uint8_t *framebuffer;
 
 // exit.c
 void exit(void);
@@ -61,6 +62,7 @@ int sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int sys_ipc_recv(void *rcv_pg);
 int sys_env_set_workpath(envid_t envid, const char *path);
 int sys_gettime(struct tm *tm);
+int sys_updatescreen();
 
 // This must be inlined.  Exercise for reader: why?
 static inline envid_t __attribute__((always_inline))

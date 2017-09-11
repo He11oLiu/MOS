@@ -18,3 +18,4 @@ V = @
 # following line and set it to the full path to QEMU.
 #
 QEMU=/usr/local/Cellar/qemu/2.10.0/bin/qemu-system-i386
+# QEMU=/usr/local/bin/qemu-system-i386

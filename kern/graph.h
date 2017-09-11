@@ -18,5 +18,6 @@ int draw_screen(uint8_t color);
 // int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color);
 // int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color);
 int draw_canvas(uint16_t x, uint16_t y,canvas_t *canvas);
+void update_screen();
 
 #endif

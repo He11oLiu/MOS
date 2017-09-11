@@ -20,6 +20,7 @@ enum {
 	SYS_getcwd,
 	SYS_env_set_workpath,
 	SYS_gettime,
+	SYS_updatescreen,
 	NSYSCALLS
 };
 

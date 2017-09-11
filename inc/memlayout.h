@@ -49,9 +49,11 @@
  *                     |  Cur. Page Table (User R-)   | R-/R-  PTSIZE
  *    UVPT      ---->  +------------------------------+ 0xef400000
  *                     |          RO PAGES            | R-/R-  PTSIZE
- *    UPAGES    ---->  +------------------------------+ 0xef000000
+ *  FRAMEBUF    ---->  +------------------------------+ 0xef000000
+ *                     |        FRAME BUFFER          | RW/RW  PTSIZE
+ *    UPAGES    ---->  +------------------------------+ 0xeec00000
  *                     |           RO ENVS            | R-/R-  PTSIZE
- * UTOP,UENVS ------>  +------------------------------+ 0xeec00000
+ * UTOP,UENVS ------>  +------------------------------+ 0xee800000
  * UXSTACKTOP -/       |     User Exception Stack     | RW/RW  PGSIZE
  *                     +------------------------------+ 0xeebff000
  *                     |       Empty Memory (*)       | --/--  PGSIZE
@@ -112,8 +114,11 @@
 #define UVPT (ULIM - PTSIZE)
 // Read-only copies of the Page structures
 #define UPAGES (UVPT - PTSIZE)
+// Read-write framebuffer
+#define FRAMEBUF (UPAGES - PTSIZE)
 // Read-only copies of the global env structures
-#define UENVS (UPAGES - PTSIZE)
+#define UENVS (FRAMEBUF - PTSIZE)
+// #define UENVS (UPAGES - PTSIZE)
 
 /*
  * Top of user VM. User can manipulate VA from UTOP-1 and down!
@@ -163,6 +168,7 @@ typedef uint32_t pde_t;
  */
 extern volatile pte_t uvpt[]; // VA of "virtual page table"
 extern volatile pde_t uvpd[]; // VA of current page directory
+
 #endif
 
 /*
