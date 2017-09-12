@@ -32,7 +32,10 @@ LIB_SRCFILES :=		$(LIB_SRCFILES) \
 LIB_SRCFILES :=		$(LIB_SRCFILES) \
 			lib/dir.c \
 			lib/canvas.c \
-			lib/spinlock.c 
+			lib/spinlock.c \
+			lib/interface.c \
+			lib/font_ascii.c \
+			lib/font_cn.c
 
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
 LIB_OBJFILES := $(patsubst lib/%.S, $(OBJDIR)/lib/%.o, $(LIB_OBJFILES))

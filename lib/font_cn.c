@@ -1,5 +1,4 @@
-#ifndef JOS_INC_FONTCN_H
-#define JOS_INC_FONTCN_H
+#include <inc/font.h>
 
 unsigned char cn_lib[] = {
 /*隆隆   CA1A1 */
@@ -35332,7 +35331,3 @@ unsigned char cn_lib[] = {
 
 
 };
-
-
-#endif /*CN_LIB_H_*/
-

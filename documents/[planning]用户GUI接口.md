@@ -1,7 +1,5 @@
 # GUI
 
-*
-
 ## framebuffer
 
 在`图形库`中，已经将图形模式打开，将显存映射到内存中的一段空间。并进行了简单的测试。
@@ -213,3 +211,58 @@ static int sys_updatescreen()
 ```
 
 配套的一些代码就不解释了。
+
+
+
+## 用户GUI接口
+
+因为时间不多，打算简单做一个可用的`GUI`。这个`GUI`没有鼠标，全部依靠键盘控制，与功能机的操作逻辑类似。
+
+
+
+## Bitmap图片显示
+
+以下内容[参考文献](http://www.brackeen.com/vga/bitmaps.html)
+
+> There are many file formats for storing bitmaps, such as RLE, JPEG, TIFF, TGA, PCX, BMP, PNG, PCD and GIF. The bitmaps studied in this section will be 256-color bitmaps, where eight bits represents one pixel.
+>
+> One of the easiest 256-color bitmap file format is Windows' BMP. This file format can be stored uncompressed, so reading BMP files is fairly simple.
+
+`Windows' BMP`是没有压缩过的，所以读这种`BMP`会非常方便。这里也准备就支持这种格式的图片。
+
+> There are a few different sub-types of the BMP file format. The one studied here is Windows' RGB-encoded BMP format. For 256-color bitmaps, it has a 54-byte header (Table III) followed by a 1024-byte palette table. After that is the actual bitmap, which starts at the lower-left hand corner.
+
+BMP的文件格式如下：
+
+| Data                     | Description                        |
+| ------------------------ | ---------------------------------- |
+| `WORD Type;`             | File type. Set to "BM".            |
+| `DWORD Size;`            | Size in BYTES of the file.         |
+| `DWORD Reserved;`        | Reserved. Set to zero.             |
+| `DWORD Offset;`          | Offset to the data.                |
+| `DWORD headerSize;`      | Size of rest of header. Set to 40. |
+| `DWORD Width;`           | Width of bitmap in pixels.         |
+| `DWORD Height;`          | Height of bitmap in pixels.        |
+| `WORD Planes;`           | Number of Planes. Set to 1.        |
+| `WORD BitsPerPixel;`     | Number of bits per pixel.          |
+| `DWORD Compression;`     | Compression. Usually set to 0.     |
+| `DWORD SizeImage;`       | Size in bytes of the bitmap.       |
+| `DWORD XPixelsPerMeter;` | Horizontal pixels per meter.       |
+| `DWORD YPixelsPerMeter;` | Vertical pixels per meter.         |
+| `DWORD ColorsUsed;`      | Number of colors used.             |
+| `DWORD ColorsImportant;` | Number of "important" colors.      |
+
+## 巨坑1
+
+
+
+其中比较坑的是，需要为2字节的倍数
+
+```c
+#pragma pack(2)
+```
+
+
+
+## 巨坑2
+

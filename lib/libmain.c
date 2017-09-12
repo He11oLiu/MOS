@@ -3,6 +3,9 @@
 
 #include <inc/lib.h>
 
+#define SCRNX 1024
+#define SCRNY 768
+
 extern void umain(int argc, char **argv);
 
 const volatile struct Env *thisenv;
@@ -18,7 +21,12 @@ libmain(int argc, char **argv)
 	if (argc > 0)
 		binaryname = argv[0];
 	
+	// Could be pass with frambuffer from kernel
+	graph.scrnx = SCRNX;
+	graph.scrny = SCRNY;
+	graph.framebuffer = (uint8_t *)FRAMEBUF;
 	framebuffer = (uint8_t *)FRAMEBUF;
+
 	// call user main routine
 	umain(argc, argv);
 

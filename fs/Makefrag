@@ -22,7 +22,8 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/mkdir \
 			$(OBJDIR)/user/touch	\
 			$(OBJDIR)/user/msh	\
-			$(OBJDIR)/user/sysinfo
+			$(OBJDIR)/user/sysinfo	\
+			$(OBJDIR)/user/applauncher
 
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/lorem \
@@ -30,8 +31,10 @@ FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/testshell.key \
 			fs/testshell.sh
 
+FSIMGBITMAPFILES := user/icons/*.bmp
 
-FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)
+
+FSIMGFILES := $(FSIMGBITMAPFILES) $(FSIMGTXTFILES) $(USERAPPS)
 
 $(OBJDIR)/fs/%.o: fs/%.c fs/fs.h inc/lib.h $(OBJDIR)/.vars.USER_CFLAGS
 	@echo + cc[USER] $<

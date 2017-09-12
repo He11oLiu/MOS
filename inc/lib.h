@@ -22,6 +22,8 @@
 #include <inc/args.h>
 #include <inc/spinlock.h>
 #include <inc/time.h>
+#include <inc/interface.h>
+#include <inc/bitmap.h>
 
 #define USED(x) (void)(x)
 
@@ -126,6 +128,13 @@ void wait(envid_t env);
 int chdir(const char *path);
 char *getcwd(char *buffer, int maxlen);
 int mkdir(const char *dirname);
+
+// Graph
+struct graph_info
+{
+	uint16_t scrnx, scrny;
+	uint8_t *framebuffer;
+} graph;
 
 /* File open modes */
 #define O_RDONLY 0x0000  /* open for reading only */
