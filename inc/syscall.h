@@ -21,6 +21,7 @@ enum {
 	SYS_env_set_workpath,
 	SYS_gettime,
 	SYS_updatescreen,
+	SYS_setpalette,
 	NSYSCALLS
 };
 

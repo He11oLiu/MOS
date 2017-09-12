@@ -119,3 +119,8 @@ int sys_updatescreen()
 {
 	return syscall(SYS_updatescreen, 0, 0, 0, 0, 0, 0);
 }
+
+int sys_setpalette()
+{
+	return syscall(SYS_setpalette, 0, 0, 0, 0, 0, 0);
+}

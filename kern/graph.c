@@ -9,6 +9,7 @@
 #define PIXEL(x, y) *(framebuffer + x + (y * graph.scrnx))
 struct graph_info graph;
 uint8_t *framebuffer;
+struct frame_info *frame;
 
 // initial frambuffer
 void init_framebuffer();
@@ -29,9 +30,12 @@ void graph_init()
     cprintf("=====================\n");
 
     // Init framebuffer
+
+    cprintf("Before");
     init_framebuffer();
     init_palette();
     draw_screen(0x03);
+    cprintf("frame at %#x frambuffer at %#x\n", frame, framebuffer);
     update_screen();
 }
 
@@ -59,9 +63,10 @@ int draw_screen(uint8_t color)
 
 void init_framebuffer()
 {
-    if ((framebuffer = (uint8_t *)kmalloc((size_t)(graph.scrnx * graph.scrny))) == NULL)
-        panic("Not enough memory for framebuffer!");
-    map_framebuffer(framebuffer);
+    if ((frame = (struct frame_info *)kmalloc((size_t)(256 * sizeof(struct palette) + graph.scrnx * graph.scrny))) == NULL)
+        panic("Not enough memory for frame!");
+    framebuffer = (uint8_t *)&(frame->framebuffer);
+    map_framebuffer(frame);
 }
 
 void update_screen()
@@ -75,8 +80,20 @@ void init_palette()
     outb(0x03c8, 0);
     for (i = 0; i < 256; i++)
     {
-        outb(0x03c9, (i & 0xe0) << 0 | 0xA);
-        outb(0x03c9, (i & 0x1c) << 3 | 0xA);
-        outb(0x03c9, (i & 0x03) << 5 | 0xA);
+        outb(0x03c9, (i & 0xe0) >> 2); //| 0xA);
+        outb(0x03c9, (i & 0x1c) << 1); //| 0xA);
+        outb(0x03c9, (i & 0x03) << 3); //| 0xA);
+    }
+}
+
+void set_palette()
+{
+    int i;
+    outb(0x03c8, 0);
+    for (i = 0; i < 256; i++)
+    {
+        outb(0x03c9, frame->palette[i].rgb_red); //| 0xA);
+        outb(0x03c9, frame->palette[i].rgb_green); //| 0xA);
+        outb(0x03c9, frame->palette[i].rgb_blue); //| 0xA);
     }
 }

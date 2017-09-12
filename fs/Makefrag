@@ -31,7 +31,8 @@ FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/testshell.key \
 			fs/testshell.sh
 
-FSIMGBITMAPFILES := user/icons/*.bmp
+FSIMGBITMAPFILES := user/icons/*.bmp \
+					user/icons/palette.plt
 
 
 FSIMGFILES := $(FSIMGBITMAPFILES) $(FSIMGTXTFILES) $(USERAPPS)

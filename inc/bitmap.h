@@ -30,20 +30,9 @@ typedef struct bitmap_infoheader
 
 typedef struct
 {
-    unsigned char rgb_blue;
-    unsigned char rgb_green;
-    unsigned char rgb_red;
-    unsigned char rgb_reserved;
-} bitmap_palette;
-
-typedef struct
-{
     uint16_t width;
     uint16_t height;
-    bitmap_palette palette[256];
     int channel;
 } bitmap_image;
-
-int read_bmp(char *name, unsigned char *buff);
 
 #endif

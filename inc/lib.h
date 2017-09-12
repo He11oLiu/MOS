@@ -65,6 +65,7 @@ int sys_ipc_recv(void *rcv_pg);
 int sys_env_set_workpath(envid_t envid, const char *path);
 int sys_gettime(struct tm *tm);
 int sys_updatescreen();
+int sys_setpalette();
 
 // This must be inlined.  Exercise for reader: why?
 static inline envid_t __attribute__((always_inline))
@@ -135,6 +136,22 @@ struct graph_info
 	uint16_t scrnx, scrny;
 	uint8_t *framebuffer;
 } graph;
+
+struct palette
+{
+    unsigned char rgb_blue;
+    unsigned char rgb_green;
+    unsigned char rgb_red;
+    unsigned char rgb_reserved;
+};
+
+
+struct frame_info
+{
+    struct palette palette[256];
+    uint8_t *framebuffer;
+};
+struct frame_info *frame;
 
 /* File open modes */
 #define O_RDONLY 0x0000  /* open for reading only */

@@ -24,8 +24,10 @@ libmain(int argc, char **argv)
 	// Could be pass with frambuffer from kernel
 	graph.scrnx = SCRNX;
 	graph.scrny = SCRNY;
-	graph.framebuffer = (uint8_t *)FRAMEBUF;
-	framebuffer = (uint8_t *)FRAMEBUF;
+	// graph.framebuffer = (uint8_t *)FRAMEBUF;
+	frame = (struct frame_info *)FRAMEBUF;
+	graph.framebuffer = (uint8_t *)&(frame->framebuffer);
+	framebuffer = (uint8_t *)&(frame->framebuffer);
 
 	// call user main routine
 	umain(argc, argv);
