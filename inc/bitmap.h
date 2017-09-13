@@ -2,6 +2,8 @@
 #define JOS_INC_BITMAP_H_
 
 #include <inc/types.h>
+#include <inc/file.h>
+#include <inc/interface.h>
 
 
 typedef struct bitmap_fileheader
@@ -17,7 +19,7 @@ typedef struct bitmap_infoheader
 {
     uint32_t biSize;
     uint32_t biWidth;
-    uint32_t biHeight;
+    int biHeight;
     uint16_t biPlanes;
     uint16_t biBitCount;
     uint32_t biCompression;
@@ -32,7 +34,8 @@ typedef struct
 {
     uint16_t width;
     uint16_t height;
-    int channel;
 } bitmap_image;
+
+int draw_bitmap(char *filename, uint16_t disx, uint16_t disy, struct interface *interface);
 
 #endif

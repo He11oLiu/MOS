@@ -1,6 +1,8 @@
 #ifndef JOS_INC_SYSCALL_H
 #define JOS_INC_SYSCALL_H
 
+#include <inc/types.h>
+
 /* system call numbers */
 enum {
 	SYS_cputs = 0,

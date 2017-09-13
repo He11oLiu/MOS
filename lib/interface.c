@@ -1,10 +1,15 @@
 #include <inc/interface.h>
 #include <inc/string.h>
+#include <inc/error.h>
+#include <inc/file.h>
+#include <inc/fd.h>
+#include <inc/usyscall.h>
 
 void draw_interface(struct interface *interface)
 {
     draw_title(interface);
     draw_content(interface);
+    sys_updatescreen();
 }
 
 void draw_title(struct interface *interface)
@@ -86,4 +91,16 @@ void draw_fontpixel(uint16_t x, uint16_t y, uint8_t color, uint8_t fontmag, stru
     for (j = y; j < y + fontmag; j++)
         for (i = x; i < x + fontmag; i++)
             PIXEL(interface, i, j) = color;
+}
+
+int init_palette(char *plt_filename,struct frame_info *frame)
+{
+    int fd, i;
+    if ((fd = open(plt_filename, O_RDONLY)) < 0)
+        return -E_BAD_PATH;
+    for (i = 0; i < 256; i++)
+        read(fd, &frame->palette[i], sizeof(struct palette));
+    close(fd);
+    sys_setpalette();
+    return 0;
 }

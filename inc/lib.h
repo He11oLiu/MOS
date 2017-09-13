@@ -24,6 +24,8 @@
 #include <inc/time.h>
 #include <inc/interface.h>
 #include <inc/bitmap.h>
+#include <inc/file.h>
+#include <inc/usyscall.h>
 
 #define USED(x) (void)(x)
 
@@ -45,27 +47,6 @@ void set_pgfault_handler(void (*handler)(struct UTrapframe *utf));
 
 // readline.c
 char *readline(const char *buf);
-
-// syscall.c
-void sys_cputs(const char *string, size_t len);
-int sys_cgetc(void);
-envid_t sys_getenvid(void);
-int sys_env_destroy(envid_t);
-void sys_yield(void);
-static envid_t sys_exofork(void);
-int sys_env_set_status(envid_t env, int status);
-int sys_env_set_trapframe(envid_t env, struct Trapframe *tf);
-int sys_env_set_pgfault_upcall(envid_t env, void *upcall);
-int sys_page_alloc(envid_t env, void *pg, int perm);
-int sys_page_map(envid_t src_env, void *src_pg,
-				 envid_t dst_env, void *dst_pg, int perm);
-int sys_page_unmap(envid_t env, void *pg);
-int sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
-int sys_ipc_recv(void *rcv_pg);
-int sys_env_set_workpath(envid_t envid, const char *path);
-int sys_gettime(struct tm *tm);
-int sys_updatescreen();
-int sys_setpalette();
 
 // This must be inlined.  Exercise for reader: why?
 static inline envid_t __attribute__((always_inline))
@@ -89,21 +70,7 @@ envid_t fork(void);
 envid_t sfork(void); // Challenge!
 
 // fd.c
-int close(int fd);
-ssize_t read(int fd, void *buf, size_t nbytes);
-ssize_t write(int fd, const void *buf, size_t nbytes);
-int seek(int fd, off_t offset);
-void close_all(void);
-ssize_t readn(int fd, void *buf, size_t nbytes);
-int dup(int oldfd, int newfd);
-int fstat(int fd, struct Stat *statbuf);
-int stat(const char *path, struct Stat *statbuf);
 
-// file.c
-int open(const char *path, int mode);
-int ftruncate(int fd, off_t size);
-int remove(const char *path);
-int sync(void);
 
 // pageref.c
 int pageref(void *addr);
@@ -137,31 +104,6 @@ struct graph_info
 	uint8_t *framebuffer;
 } graph;
 
-struct palette
-{
-    unsigned char rgb_blue;
-    unsigned char rgb_green;
-    unsigned char rgb_red;
-    unsigned char rgb_reserved;
-};
-
-
-struct frame_info
-{
-    struct palette palette[256];
-    uint8_t *framebuffer;
-};
 struct frame_info *frame;
-
-/* File open modes */
-#define O_RDONLY 0x0000  /* open for reading only */
-#define O_WRONLY 0x0001  /* open for writing only */
-#define O_RDWR 0x0002	/* open for reading and writing */
-#define O_ACCMODE 0x0003 /* mask for above modes */
-
-#define O_CREAT 0x0100 /* create if nonexistent */
-#define O_TRUNC 0x0200 /* truncate to zero length */
-#define O_EXCL 0x0400  /* error if already exists */
-#define O_MKDIR 0x0800 /* create directory, not regular file */
 
 #endif // !JOS_INC_LIB_H

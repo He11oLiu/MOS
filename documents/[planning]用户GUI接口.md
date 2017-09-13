@@ -254,15 +254,181 @@ BMP的文件格式如下：
 
 ## 巨坑1
 
-
-
-其中比较坑的是，需要为2字节的倍数
+`GCC`默认4字节对齐！！！！！！`Bitmap`的文件头是`14Bytes`，如果不加特殊标记，其会变成`16Bytes`，导致文件偏移错误：
 
 ```c
-#pragma pack(2)
+typedef struct bitmap_fileheader
+{
+    uint16_t bfType;
+    uint32_t bfSize;
+    uint16_t bfReserved1;
+    uint16_t bfReserved2;
+    uint32_t bfOffBits;
+}__attribute__((packed)) bitmap_fileheader;
+
+typedef struct bitmap_infoheader
+{
+    uint32_t biSize;
+    uint32_t biWidth;
+    uint32_t biHeight;
+    uint16_t biPlanes;
+    uint16_t biBitCount;
+    uint32_t biCompression;
+    uint32_t biSizeImage;
+    uint32_t biXPelsPerMeter;
+    uint32_t biYPelsPerMeter;
+    uint32_t biClrUsed;
+    uint32_t biClrImportant;
+} bitmap_infoheader;
 ```
 
-
-
 ## 巨坑2
+
+操作系统默认调色板！！！！
+
+之前无论怎么写，颜色总是不对。发现默认调色板颜色非常有问题。于是写了一个初始化调色板的函数：
+
+```c
+void init_palette()
+{
+    int i;
+    outb(0x03c8, 0);
+    for (i = 0; i < 256; i++)
+    {
+        outb(0x03c9, (i & 0xe0) >> 2); //| 0xA);
+        outb(0x03c9, (i & 0x1c) << 1); //| 0xA);
+        outb(0x03c9, (i & 0x03) << 3); //| 0xA);
+    }
+}
+```
+
+然后颜色还是不大对劲，调色板应该不是这么简单的对应关系。
+
+为了能够从用户空间读取调色板配置文件，并在内核中修改调色板，在原来设计`framebuffer`的地址上又重新设计了一块专门用于保存调色板的区域，与之前的`framebuffer`一样，都是`RW/RW`的。
+
+然后整个流程是这样的：
+
+- 用户读BMP文件头
+- 用户读BMP调色板
+- 放入共用空间
+- 系统调用内核修改调色板
+- 用户读文件内容
+- 用户写入framebuffer
+- 系统调用更新屏幕
+
+然后发现几个文件的调色基本一致，于是单独设计了一个用于保存调色板信息的文件，用以下工具导出：
+
+```c
+
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct bitmap_fileheader
+{
+    uint16_t bfType;
+    uint32_t bfSize;
+    uint16_t bfReserved1;
+    uint16_t bfReserved2;
+    uint32_t bfOffBits;
+}__attribute__((packed)) bitmap_fileheader;
+
+typedef struct bitmap_infoheader
+{
+    uint32_t biSize;
+    uint32_t biWidth;
+    uint32_t biHeight;
+    uint16_t biPlanes;
+    uint16_t biBitCount;
+    uint32_t biCompression;
+    uint32_t biSizeImage;
+    uint32_t biXPelsPerMeter;
+    uint32_t biYPelsPerMeter;
+    uint32_t biClrUsed;
+    uint32_t biClrImportant;
+} bitmap_infoheader;
+
+typedef struct
+{
+    uint16_t width;
+    uint16_t height;
+    int channel;
+} bitmap_image;
+
+
+struct palette
+{
+    unsigned char rgb_blue;
+    unsigned char rgb_green;
+    unsigned char rgb_red;
+    unsigned char rgb_reserved;
+};
+
+void load_bmp(char *file)
+{
+    FILE *fp;
+    long index;
+    int x;
+    
+    /* open the file */
+    if ((fp = fopen(file, "rb")) == NULL)
+    {
+        printf("Error opening file %s.\n", file);
+        exit(1);
+    }
+    
+    uint8_t buf[1000];
+    
+    bitmap_fileheader head;
+    bitmap_infoheader info;
+    uint16_t width, height;
+    bitmap_image image;
+    
+    bitmap_infoheader *infoheader = &info;
+    
+    
+    
+    fread(&head, sizeof(bitmap_fileheader),1,fp);
+    fread( &info, sizeof(bitmap_infoheader),1,fp);
+    struct palette palette[256];
+    FILE *fout = fopen("palette.plt", "wb");
+    
+    for (int i = 0; i < 256; i++)
+    {
+        fread(&palette[i], sizeof(struct palette), 1, fp);
+        palette[i].rgb_red >>= 2;
+        palette[i].rgb_green >>= 2;
+        palette[i].rgb_blue >>= 2;
+        fwrite(&palette[i], sizeof(struct palette), 1, fout);
+    }
+    fclose(fout);
+    fclose(fp);
+}
+
+int main()
+{
+    int i, x, y;
+    load_bmp("./feather.bmp"); /* open the file */
+    return 0;
+}
+```
+
+ 然后将`palette.plt`放入文件系统中，在初始化图形界面的时候读进来，放入调色板区域，告诉内核更新调色板，之后就不用管了。
+
+## 巨坑3
+
+位图高！！！！！
+
+之前没有仔细读文件头说明，位图高居然可以是负数，代表着位图是正的……
+
+好吧，多加一个分支解决。
+
+
+
+
+
+
+
+## 巨坑4
+
+像素
 

@@ -23,7 +23,9 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/touch	\
 			$(OBJDIR)/user/msh	\
 			$(OBJDIR)/user/sysinfo	\
-			$(OBJDIR)/user/applauncher
+			$(OBJDIR)/user/applauncher	\
+			$(OBJDIR)/user/bmpviewer
+
 
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/lorem \

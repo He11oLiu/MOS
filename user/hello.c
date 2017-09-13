@@ -1,17 +1,17 @@
 // hello, world
 #include <inc/lib.h>
 
-void init_palette()
-{
-	int fd = open("/bin/palette.plt", O_RDONLY);
-	int i;
-	if (fd < 0)
-		return;
-	for (i = 0; i < 256; i++)
-		read(fd, &frame->palette[i], sizeof(struct palette));
-	close(fd);
-	sys_setpalette();
-}
+// void init_palette()
+// {
+// 	int fd = open("/bin/palette.plt", O_RDONLY);
+// 	int i;
+// 	if (fd < 0)
+// 		return;
+// 	for (i = 0; i < 256; i++)
+// 		read(fd, &frame->palette[i], sizeof(struct palette));
+// 	close(fd);
+// 	sys_setpalette();
+// }
 
 void umain(int argc, char **argv)
 {
@@ -42,7 +42,7 @@ void umain(int argc, char **argv)
 	printf("height  = %u\n", infoheader->biHeight);
 	printf("palette = %d\n", infoheader->biClrUsed);
 
-	init_palette();
+	// init_palette();
 
 	seek(fd, offset);
 	read(fd, (void *)buf, width * height);
@@ -55,3 +55,4 @@ void umain(int argc, char **argv)
 		}
 	sys_updatescreen();
 }
+
