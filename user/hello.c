@@ -42,8 +42,6 @@ void umain(int argc, char **argv)
 	printf("height  = %u\n", infoheader->biHeight);
 	printf("palette = %d\n", infoheader->biClrUsed);
 
-	// init_palette();
-
 	seek(fd, offset);
 	read(fd, (void *)buf, width * height);
 	uint16_t x = 20;

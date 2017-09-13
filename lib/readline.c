@@ -21,6 +21,7 @@ readline(const char *prompt)
 	echoing = iscons(0);
 	while (1) {
 		c = getchar();
+		// cprintf("\nIn readline %#x",c);
 		if (c < 0) {
 			if (c != -E_EOF)
 				cprintf("read error: %e\n", c);

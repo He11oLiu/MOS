@@ -78,7 +78,7 @@ int draw_bitmap(char *filename, uint16_t disx, uint16_t disy, struct interface *
         for (j = 0; j < height; j++)
         {
             read(fd, (void *)buf, width * (colorbit / 8));
-            memcpy(interface->framebuffer + (disy + height - j - 1) * interface->scrnx, buf, width);
+            memcpy(interface->framebuffer + disx + (disy + height - j - 1) * interface->scrnx, buf, width);
         }
     }
     else
@@ -87,9 +87,11 @@ int draw_bitmap(char *filename, uint16_t disx, uint16_t disy, struct interface *
         for (j = 0; j < height; j++)
         {
             read(fd, (void *)buf, width * colorbit);
-            memcpy(interface->framebuffer + (disy + j) * interface->scrnx, buf, width);
+            memcpy(interface->framebuffer + disx + (disy + j) * interface->scrnx, buf, width);
         }
     }
+    // printf("Width = %d Height = %d\n", width, height);
+    // printf("Read finish\n");
     close(fd);
     return 0;
 }

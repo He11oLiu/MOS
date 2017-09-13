@@ -240,7 +240,6 @@ void trap(struct Trapframe *tf)
 	// of GCC rely on DF being clear
 	asm volatile("cld" ::
 					 : "cc");
-
 	// Halt the CPU if some other CPU has called panic()
 	extern char *panicstr;
 	if (panicstr)

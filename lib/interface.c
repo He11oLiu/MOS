@@ -4,27 +4,54 @@
 #include <inc/file.h>
 #include <inc/fd.h>
 #include <inc/usyscall.h>
+#include <inc/bitmap.h>
+#include <inc/stdio.h>
+
+uint16_t iconloc[6][2] = {{30, 130}, {360, 130}, {690, 130}, {30, 450}, {360, 450}, {690, 450}};
 
 void draw_interface(struct interface *interface)
 {
     draw_title(interface);
-    draw_content(interface);
     sys_updatescreen();
 }
 
 void draw_title(struct interface *interface)
 {
-    int len = strlen(interface->title);
-    int fontmag = 3;
-    int titlex = (int)(interface->scrnx - len * fontmag * 8) / 2;
-    int titley = (int)(TITLE_HEIGHT - 16 * fontmag) / 2;
-    memset(interface->framebuffer, interface->title_color, TITLE_HEIGHT * interface->scrnx);
-    draw_ascii(titlex, titley, interface->title, interface->title_textcolor, 3, interface);
+    int len, fontmag, titlex, titley;
+    switch (interface->titletype)
+    {
+    case TITLE_TYPE_TXT:
+        len = strlen(interface->title);
+        fontmag = 3;
+        titlex = (int)(interface->scrnx - len * fontmag * 8) / 2;
+        titley = (int)(TITLE_HEIGHT - 16 * fontmag) / 2;
+        memset(interface->framebuffer, interface->title_color, TITLE_HEIGHT * interface->scrnx);
+        draw_ascii(titlex, titley, interface->title, interface->title_textcolor, 3, interface);
+        break;
+    case TITLE_TYPE_IMG:
+        memset(interface->framebuffer, interface->title_color, TITLE_HEIGHT * interface->scrnx);
+        draw_bitmap(interface->title, (interface->scrnx - TITLE_IMG_WIDTH) / 2, 0, interface);
+        break;
+    }
 }
 
-void draw_content(struct interface *interface)
+void draw_launcher(struct interface *interface, struct launcher_content *launcher)
 {
-    memset(interface->framebuffer + TITLE_HEIGHT * interface->scrnx, interface->content_color, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
+    int i;
+    char buf[MAX_PATH];
+    memset(interface->framebuffer + TITLE_HEIGHT * interface->scrny, launcher->background, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
+    memset(interface->framebuffer + TITLE_HEIGHT * interface->scrnx, launcher->background, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
+    for (i = 0; i < launcher->app_num; i++)
+    {
+        if (i == launcher->app_sel)
+        {
+            strcpy(buf, launcher->icon[i]);
+            strcpy(buf + strlen(launcher->icon[i]) - 4, "sel.bmp");
+            draw_bitmap(buf, iconloc[i][0], iconloc[i][1], interface); 
+        }
+        else
+            draw_bitmap(launcher->icon[i], iconloc[i][0], iconloc[i][1], interface);
+    }
 }
 
 void interface_init(uint16_t scrnx, uint16_t scrny, uint8_t *framebuffer, struct interface *interface)
@@ -36,14 +63,10 @@ void interface_init(uint16_t scrnx, uint16_t scrny, uint8_t *framebuffer, struct
 
 void add_title(char *title, uint8_t title_textcolor, uint8_t title_color, struct interface *interface)
 {
+    interface->titletype = TITLE_TYPE_TXT;
     strcpy(interface->title, title);
     interface->title_textcolor = title_textcolor;
     interface->title_color = title_color;
-}
-
-void add_content(uint8_t content_color, struct interface *interface)
-{
-    interface->content_color = content_color;
 }
 
 int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag, struct interface *interface)
@@ -93,7 +116,7 @@ void draw_fontpixel(uint16_t x, uint16_t y, uint8_t color, uint8_t fontmag, stru
             PIXEL(interface, i, j) = color;
 }
 
-int init_palette(char *plt_filename,struct frame_info *frame)
+int init_palette(char *plt_filename, struct frame_info *frame)
 {
     int fd, i;
     if ((fd = open(plt_filename, O_RDONLY)) < 0)
