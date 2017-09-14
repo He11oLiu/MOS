@@ -142,6 +142,8 @@ int spawn(const char *prog, const char **argv)
 
 	if ((r = sys_env_set_workpath(child, getcwd(NULL, -1))) < 0)
 		panic("sys_env_set_workpath: %e", r);
+		
+	cprintf("SPWAN SUCCESS %s\n",prog);
 	return child;
 
 error:

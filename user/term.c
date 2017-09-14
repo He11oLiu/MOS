@@ -1,9 +1,6 @@
 #include <inc/lib.h>
 
-#define TERM_ROW 25
-#define TERM_COL 80
 #define BACKGROUND 0x00
-#define TERM_SIZE (TERM_ROW * TERM_COL)
 #define BUFSIZ 1024 /* Find the buffer overrun bug! */
 int debug = 0;
 
@@ -12,21 +9,14 @@ int builtin_cmd(char *cmdline);
 void runcmd(char *s);
 void usage(void);
 int do_cd(char *cmdline);
+void msh(int argc, char **argv);
 
 struct interface interface;
-char term_buf[TERM_SIZE];
-uint16_t term_pos;
-struct term_content term;
-
-void bputchar(char c);
-static void bputch(int ch, int *cnt);
-int vbprintf(const char *fmt, va_list ap);
-int bprintf(const char *fmt, ...);
-void msh();
 
 void umain(int argc, char **argv)
 {
-    int i;
+    int i, r;
+    int fd;
     interface_init(graph.scrnx, graph.scrny, graph.framebuffer, &interface);
     interface.titletype = TITLE_TYPE_TXT;
     strcpy(interface.title, "TERM");
@@ -34,89 +24,10 @@ void umain(int argc, char **argv)
     interface.title_textcolor = 0xff;
     interface.content_type = APP_NEEDBG;
     interface.content_color = BACKGROUND;
-    draw_interface(&interface);
-    term.term_col = TERM_COL;
-    term.term_row = TERM_ROW;
-    term.term_buf = (char *)term_buf;
-    term_pos = 0;
-    msh();
+    msh(argc, argv);
 }
 
-static void bputch(int ch, int *cnt)
-{
-    bputchar(ch);
-    sys_updatescreen();
-    *cnt++;
-}
-
-int vbprintf(const char *fmt, va_list ap)
-{
-    int cnt = 0;
-
-    vprintfmt((void *)bputch, &cnt, fmt, ap);
-    return cnt;
-}
-
-int bprintf(const char *fmt, ...)
-{
-    va_list ap;
-    int cnt;
-
-    va_start(ap, fmt);
-    cnt = vbprintf(fmt, ap);
-    va_end(ap);
-
-    return cnt;
-}
-
-void bputchar(char c)
-{
-    switch (c)
-    {
-    case '\b': /* backspace */
-        if (term_pos > 0)
-        {
-            term_pos--;
-            // delete the character
-            term_buf[term_pos] = ' ';
-        }
-        break;
-    case '\n': /* new line */
-        term_pos += TERM_COL;
-    /* fallthru */
-    case '\r': /* return to the first character of cur line */
-        term_pos -= (term_pos % TERM_COL);
-        break;
-    case '\t':
-        bputchar(' ');
-        bputchar(' ');
-        bputchar(' ');
-        bputchar(' ');
-        break;
-    default:
-        term_buf[term_pos++] = c; /* write the character */
-        break;
-    }
-
-    // When current pos reach the bottom of the creen
-    // case '\n' : term_pos -= TERM_COL will work
-    // case other: term_pos must equal to TERM_SIZE
-    if (term_pos >= TERM_SIZE)
-    {
-        int i;
-        // Move all the screen upward (a line)
-        memmove(term_buf, term_buf + TERM_COL, (TERM_SIZE - TERM_COL) * sizeof(uint16_t));
-        // Clear the bottom line
-        for (i = TERM_SIZE - TERM_COL; i < TERM_SIZE; i++)
-            term_buf[i] = ' ';
-        term_pos -= TERM_COL;
-    }
-    draw_term(100, 160, &term, 0xff, 0x00, 1, &interface);
-}
-
-
-
-void msh()
+void msh(int argc, char **argv)
 {
     int r, interactive, echocmds;
     struct Argstate args;
@@ -125,40 +36,60 @@ void msh()
     char *buf;
 
     echocmds = 0;
+    argstart(&argc, argv, &args);
+    while ((r = argnext(&args)) >= 0)
+        switch (r)
+        {
+        case 'd':
+            debug++;
+            break;
+        case 'x':
+            echocmds = 1;
+            break;
+        default:
+            usage();
+        }
+
+    if (argc > 2)
+        usage();
+    if (argc == 2)
+    {
+        close(0);
+        if ((r = open(argv[1], O_RDONLY)) < 0)
+            panic("open %s: %e", argv[1], r);
+        assert(r == 0);
+    }
 
     // Spin for a bit to let the console quiet
     for (int i = 0; i < 15; ++i)
         sys_yield();
 
     close(0);
-    if ((r = opencons()) < 0)
-        panic("opencons: %e", r);
-    if (r != 0)
-        panic("first opencons used fd %d", r);
+    if ((r = openscreen(&interface)) < 0 || r != 0)
+        panic("fd = %d\n");
     if ((r = dup(0, 1)) < 0)
-        panic("dup: %e", r);
+        panic("dup return %e\n", r);
 
     while (1)
     {
-        bprintf("\n");
+        printf("\n");
         sys_gettime(&time);
         getcwd(path, MAXPATH);
-        bprintf("# msh in %s ",path);
-        bprintf("[%t]\n",&time);
-        bprintf("$ ");
-        buf = readline("");
+        printf("# msh in %s ", path);
+        printf("[%t]\n", &time);
+        buf = readline("$ ");
         if (buf == NULL)
             exit();
         if (buf[0] == '#')
             continue;
         if (echocmds)
-            bprintf("# %s\n", buf);
+            printf("# %s\n", buf);
         if (builtin_cmd(buf))
             continue;
         if ((r = fork()) < 0)
             panic("fork: %e", r);
         if (debug)
-            bprintf("FORK: %d\n", r);
+            cprintf("FORK: %d\n", r);
         if (r == 0)
         {
             runcmd(buf);
@@ -193,7 +124,7 @@ again:
         case 'w': // Add an argument
             if (argc == MAXARGS)
             {
-                bprintf("too many arguments\n");
+                cprintf("too many arguments\n");
                 exit();
             }
             argv[argc++] = t;
@@ -203,7 +134,7 @@ again:
             // Grab the filename from the argument list
             if (gettoken(0, &t) != 'w')
             {
-                bprintf("syntax error: < not followed by word\n");
+                cprintf("syntax error: < not followed by word\n");
                 exit();
             }
             // Open 't' for reading as file descriptor 0
@@ -219,7 +150,7 @@ again:
             strcat(argv0buf, t);
             if ((fd = open(argv0buf, O_RDONLY)) < 0)
             {
-                bprintf("Error open %s fail: %e", argv0buf, fd);
+                cprintf("Error open %s fail: %e", argv0buf, fd);
                 exit();
             }
             if (fd != 0)
@@ -233,7 +164,7 @@ again:
             // Grab the filename from the argument list
             if (gettoken(0, &t) != 'w')
             {
-                bprintf("syntax error: > not followed by word\n");
+                cprintf("syntax error: > not followed by word\n");
                 exit();
             }
             if (t[0] != '/')
@@ -241,7 +172,7 @@ again:
             strcat(argv0buf, t);
             if ((fd = open(argv0buf, O_WRONLY | O_CREAT | O_TRUNC)) < 0)
             {
-                bprintf("open %s for write: %e", argv0buf, fd);
+                cprintf("open %s for write: %e", argv0buf, fd);
                 exit();
             }
             if (fd != 1)
@@ -254,14 +185,14 @@ again:
         case '|': // Pipe
             if ((r = pipe(p)) < 0)
             {
-                bprintf("pipe: %e", r);
+                cprintf("pipe: %e", r);
                 exit();
             }
             if (debug)
-                bprintf("PIPE: %d %d\n", p[0], p[1]);
+                cprintf("PIPE: %d %d\n", p[0], p[1]);
             if ((r = fork()) < 0)
             {
-                bprintf("fork: %e", r);
+                cprintf("fork: %e", r);
                 exit();
             }
             if (r == 0)
@@ -303,7 +234,7 @@ runit:
     if (argc == 0)
     {
         if (debug)
-            bprintf("EMPTY COMMAND\n");
+            cprintf("EMPTY COMMAND\n");
         return;
     }
 
@@ -324,10 +255,10 @@ runit:
     // Print the command.
     if (debug)
     {
-        bprintf("[%08x] SPAWN:", thisenv->env_id);
+        cprintf("[%08x] SPAWN:", thisenv->env_id);
         for (i = 0; argv[i]; i++)
-            bprintf(" %s", argv[i]);
-        bprintf("\n");
+            cprintf(" %s", argv[i]);
+        cprintf("\n");
     }
 
     // Spawn the command!
@@ -335,7 +266,7 @@ runit:
     {
         snprintf(argv0buf, BUFSIZ, "/bin/%s", name);
         if ((r = spawn(argv0buf, (const char **)argv)) < 0)
-            bprintf("spawn %s: %e\n", argv[0], r);
+            cprintf("spawn %s: %e\n", argv[0], r);
     }
 
     // In the parent, close all file descriptors and wait for the
@@ -344,10 +275,10 @@ runit:
     if (r >= 0)
     {
         if (debug)
-            bprintf("[%08x] WAIT %s %08x\n", thisenv->env_id, argv[0], r);
+            cprintf("[%08x] WAIT %s %08x\n", thisenv->env_id, argv[0], r);
         wait(r);
         if (debug)
-            bprintf("[%08x] wait finished\n", thisenv->env_id);
+            cprintf("[%08x] wait finished\n", thisenv->env_id);
     }
 
     // If we were the left-hand part of a pipe,
@@ -355,10 +286,10 @@ runit:
     if (pipe_child)
     {
         if (debug)
-            bprintf("[%08x] WAIT pipe_child %08x\n", thisenv->env_id, pipe_child);
+            cprintf("[%08x] WAIT pipe_child %08x\n", thisenv->env_id, pipe_child);
         wait(pipe_child);
         if (debug)
-            bprintf("[%08x] wait finished\n", thisenv->env_id);
+            cprintf("[%08x] wait finished\n", thisenv->env_id);
     }
 
     // Done!
@@ -386,12 +317,12 @@ int _gettoken(char *s, char **p1, char **p2)
     if (s == 0)
     {
         if (debug > 1)
-            bprintf("GETTOKEN NULL\n");
+            cprintf("GETTOKEN NULL\n");
         return 0;
     }
 
     if (debug > 1)
-        bprintf("GETTOKEN: %s\n", s);
+        cprintf("GETTOKEN: %s\n", s);
 
     *p1 = 0;
     *p2 = 0;
@@ -401,7 +332,7 @@ int _gettoken(char *s, char **p1, char **p2)
     if (*s == 0)
     {
         if (debug > 1)
-            bprintf("EOL\n");
+            cprintf("EOL\n");
         return 0;
     }
     if (strchr(SYMBOLS, *s))
@@ -411,7 +342,7 @@ int _gettoken(char *s, char **p1, char **p2)
         *s++ = 0;
         *p2 = s;
         if (debug > 1)
-            bprintf("TOK %c\n", t);
+            cprintf("TOK %c\n", t);
         return t;
     }
     *p1 = s;
@@ -422,7 +353,7 @@ int _gettoken(char *s, char **p1, char **p2)
     {
         t = **p2;
         **p2 = 0;
-        bprintf("WORD: %s\n", *p1);
+        cprintf("WORD: %s\n", *p1);
         **p2 = t;
     }
     return 'w';
@@ -452,7 +383,7 @@ int gettoken(char *s, char **p1)
 
 void usage(void)
 {
-    bprintf("usage: sh [-dix] [command-file]\n");
+    cprintf("usage: sh [-dix] [command-file]\n");
     exit();
 }
 
@@ -490,6 +421,6 @@ int do_cd(char *cmdline)
     }
     strcat(pathbuf, cmdline);
     if ((r = chdir(pathbuf)) < 0)
-        bprintf("cd error : %e\n", r);
+        printf("cd error : %e\n", r);
     return 0;
 }

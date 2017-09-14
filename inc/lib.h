@@ -27,6 +27,7 @@
 #include <inc/file.h>
 #include <inc/usyscall.h>
 #include <inc/sysinfo.h>
+#include <inc/bprintf.h>
 
 #define USED(x) (void)(x)
 
@@ -85,6 +86,10 @@ void cputchar(int c);
 int getchar(void);
 int iscons(int fd);
 int opencons(void);
+
+// screen.c
+int openscreen(struct interface *interface);
+int isscreen(int fd);
 
 // pipe.c
 int pipe(int pipefds[2]);

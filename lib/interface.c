@@ -9,6 +9,10 @@
 
 uint16_t iconloc[6][2] = {{30, 130}, {360, 130}, {690, 130}, {30, 450}, {360, 450}, {690, 450}};
 
+struct interface *screen_interface;
+struct interface default_interface;
+void default_screen_interface();
+
 void draw_interface(struct interface *interface)
 {
     draw_title(interface);
@@ -112,28 +116,31 @@ int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t back, uint
     return k;
 }
 
-int draw_term(uint16_t x, uint16_t y, struct term_content *term, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface)
+int draw_screen(uint16_t x, uint16_t y, struct screen *screen, uint8_t color, uint8_t back, uint8_t fontmag)
 {
     char *font;
-    uint16_t i, j, term_x, term_y, dis_x, dis_y;
-    char *str = term->term_buf;
+    uint16_t i, j, screen_x, screen_y, dis_x, dis_y;
+    char *str = screen->screen_buf;
     char c;
+
+    if (screen_interface == 0)
+        default_screen_interface();
     dis_x = x;
     dis_y = y;
-    for (term_y = 0; term_y < term->term_row; term_y++)
+    for (screen_y = 0; screen_y < screen->screen_row; screen_y++)
     {
         x = dis_x;
         y = dis_y;
-        for (term_x = 0; term_x < term->term_col; term_x++)
+        for (screen_x = 0; screen_x < screen->screen_col; screen_x++)
         {
-            c = *(str + term_x + term_y * term->term_col);
+            c = *(str + screen_x + screen_y * screen->screen_col);
             font = (char *)(ascii_8_16 + (c - 0x20) * 16);
             for (i = 0; i < 16; i++)
                 for (j = 0; j < 8; j++)
                     if ((font[i] << j) & 0x80)
-                        draw_fontpixel((x + j * fontmag), (y + i * fontmag), color, fontmag, interface);
+                        draw_fontpixel((x + j * fontmag), (y + i * fontmag), color, fontmag, screen_interface);
                     else if (color != back)
-                        draw_fontpixel((x + j * fontmag), (y + i * fontmag), back, fontmag, interface);
+                        draw_fontpixel((x + j * fontmag), (y + i * fontmag), back, fontmag, screen_interface);
             x += 8 * fontmag;
         }
         dis_y += 16 * fontmag;
@@ -164,4 +171,17 @@ int init_palette(char *plt_filename, struct frame_info *frame)
 void draw_content(struct interface *interface)
 {
     memset(interface->framebuffer + TITLE_HEIGHT * interface->scrnx, interface->content_color, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
+}
+
+void set_screen_interface(struct interface *screen)
+{
+    screen_interface = screen;
+}
+
+void default_screen_interface()
+{
+    default_interface.scrnx = (uint16_t)SCRNX;
+    default_interface.scrny = (uint16_t)SCRNY;
+    default_interface.framebuffer = (uint8_t *)FRAMEBUF;
+    screen_interface = &default_interface;
 }

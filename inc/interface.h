@@ -4,6 +4,11 @@
 #include <inc/types.h>
 #include <inc/font.h>
 #include <inc/file.h>
+#include <inc/bprintf.h>
+
+
+#define SCRNX 1024
+#define SCRNY 768
 
 #define TITLE_HEIGHT 150
 #define TITLE_IMG_WIDTH 800
@@ -29,13 +34,6 @@ struct launcher_content
     uint8_t background;
     char icon[MAX_APP][MAX_PATH];
     char app_bin[MAX_APP][MAX_PATH];
-};
-
-struct term_content
-{
-    uint8_t term_col;
-    uint8_t term_row;
-    char *term_buf; 
 };
 
 struct interface
@@ -78,6 +76,8 @@ void draw_launcher(struct interface *interface, struct launcher_content *launche
 void add_title(char *title, uint8_t title_textcolor, uint8_t title_color, struct interface *interface);
 int init_palette(char *plt_filename, struct frame_info *frame);
 void draw_content(struct interface *interface);
-int draw_term(uint16_t x, uint16_t y, struct term_content *term, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface);
+
+int draw_screen(uint16_t x, uint16_t y, struct screen *screen, uint8_t color, uint8_t back, uint8_t fontmag);
+void set_screen_interface(struct interface *screen);
 
 #endif

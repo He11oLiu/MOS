@@ -11,6 +11,7 @@
 void	cputchar(int c);
 int	getchar(void);
 int	iscons(int fd);
+int isscreen(int fd);
 
 // lib/printfmt.c
 void	printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...);

@@ -6,6 +6,7 @@
 #include <inc/env.h>
 #include <inc/sysinfo.h>
 
+
 void sys_cputs(const char *string, size_t len);
 int sys_cgetc(void);
 envid_t sys_getenvid(void);

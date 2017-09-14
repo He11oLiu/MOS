@@ -3,7 +3,7 @@
 
 #include <inc/types.h>
 #include <inc/canvas.h>
-
+#include <inc/memlayout.h>
 
 struct palette
 {
