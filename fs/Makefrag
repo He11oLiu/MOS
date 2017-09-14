@@ -24,7 +24,10 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/msh	\
 			$(OBJDIR)/user/sysinfo	\
 			$(OBJDIR)/user/applauncher	\
-			$(OBJDIR)/user/bmpviewer
+			$(OBJDIR)/user/bmpviewer	\
+			$(OBJDIR)/user/calendar		\
+			$(OBJDIR)/user/system		\
+			$(OBJDIR)/user/term
 
 
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
@@ -34,7 +37,7 @@ FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/testshell.sh
 
 FSIMGBITMAPFILES := user/icons/*.bmp \
-					user/icons/palette.plt
+					user/icons/*.plt
 
 
 FSIMGFILES := $(FSIMGBITMAPFILES) $(FSIMGTXTFILES) $(USERAPPS)

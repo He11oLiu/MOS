@@ -3,8 +3,11 @@
 
 #ifndef JOS_KERN_PMAP_H
 #define JOS_KERN_PMAP_H
+
 #ifndef JOS_KERNEL
+
 #error "This is a JOS kernel header; user programs should not #include it"
+
 #endif
 
 #include <inc/memlayout.h>
@@ -96,5 +99,6 @@ page2kva(struct PageInfo *pp)
 }
 
 pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create);
+extern size_t totalmem;
 
 #endif /* !JOS_KERN_PMAP_H */

@@ -14,6 +14,7 @@
 // These variables are set by i386_detect_memory()
 size_t npages;				  // Amount of physical memory (in pages)
 static size_t npages_basemem; // Amount of base memory (in pages)
+size_t basemem, extmem, ext16mem, totalmem;
 
 // These variables are set in mem_init()
 pde_t *kern_pgdir;						// Kernel's initial page directory
@@ -33,8 +34,6 @@ nvram_read(int r)
 static void
 i386_detect_memory(void)
 {
-	size_t basemem, extmem, ext16mem, totalmem;
-
 	// Use CMOS calls to measure available base & extended memory.
 	// (CMOS calls return results in kilobytes.)
 	basemem = nvram_read(NVRAM_BASELO);

@@ -26,6 +26,7 @@
 #include <inc/bitmap.h>
 #include <inc/file.h>
 #include <inc/usyscall.h>
+#include <inc/sysinfo.h>
 
 #define USED(x) (void)(x)
 
@@ -105,5 +106,13 @@ struct graph_info
 } graph;
 
 struct frame_info *frame;
+
+
+#define KEY_UP 0xe2
+#define KEY_DOWN 0xe3
+#define KEY_LEFT 0xe4
+#define KEY_RIGHT 0xe5
+#define KEY_ENTER 0xa
+#define KEY_ESC 0x1b
 
 #endif // !JOS_INC_LIB_H

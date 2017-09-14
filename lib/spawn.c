@@ -95,19 +95,23 @@ int spawn(const char *prog, const char **argv)
 		close(fd);
 		return -E_NOT_EXEC;
 	}
-	
+
 	// Create new child environment
 	if ((r = sys_exofork()) < 0)
 		return r;
 	child = r;
+	// cprintf("Fork finish child = %d\nenvs = %#x\n",child,envs);
 
 	// Set up trap frame, including initial stack.
 	child_tf = envs[ENVX(child)].env_tf;
 	child_tf.tf_eip = elf->e_entry;
 
+	// cprintf("Before init stack\n");
+
 	if ((r = init_stack(child, argv, &child_tf.tf_esp)) < 0)
 		return r;
 
+	// cprintf("init_stack finish\n",child);
 	// Set up program segments as defined in ELF header.
 	ph = (struct Proghdr *)(elf_buf + elf->e_phoff);
 	for (i = 0; i < elf->e_phnum; i++, ph++)
@@ -124,6 +128,7 @@ int spawn(const char *prog, const char **argv)
 	close(fd);
 	fd = -1;
 
+	// printf("Setting finish\n");
 	// Copy shared library state.
 	if ((r = copy_shared_pages(child)) < 0)
 		panic("copy_shared_pages: %e", r);

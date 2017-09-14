@@ -24,6 +24,7 @@ enum {
 	SYS_gettime,
 	SYS_updatescreen,
 	SYS_setpalette,
+	SYS_getinfo,
 	NSYSCALLS
 };
 

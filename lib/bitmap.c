@@ -72,6 +72,9 @@ int draw_bitmap(char *filename, uint16_t disx, uint16_t disy, struct interface *
     colorbit = info.biBitCount;
     if (colorbit != 8)
         return -E_INVAL;
+    if (disx + width > interface->scrnx ||
+        disy + height > interface->scrny)
+        return -E_INVAL;
     seek(fd, offset);
     if (height > 0)
     {

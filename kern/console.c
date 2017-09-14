@@ -192,7 +192,6 @@ cga_putc(int c)
 		cons_putc(' ');
 		cons_putc(' ');
 		cons_putc(' ');
-		cons_putc(' ');
 		break;
 	default:
 		crt_buf[crt_pos++] = c;		/* write the character */

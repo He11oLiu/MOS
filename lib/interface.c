@@ -12,7 +12,7 @@ uint16_t iconloc[6][2] = {{30, 130}, {360, 130}, {690, 130}, {30, 450}, {360, 45
 void draw_interface(struct interface *interface)
 {
     draw_title(interface);
-    sys_updatescreen();
+    draw_content(interface);
 }
 
 void draw_title(struct interface *interface)
@@ -23,10 +23,10 @@ void draw_title(struct interface *interface)
     case TITLE_TYPE_TXT:
         len = strlen(interface->title);
         fontmag = 3;
-        titlex = (int)(interface->scrnx - len * fontmag * 8) / 2;
+        titlex = (int)(interface->scrnx - len * 8 * fontmag) / 2 - 50;
         titley = (int)(TITLE_HEIGHT - 16 * fontmag) / 2;
         memset(interface->framebuffer, interface->title_color, TITLE_HEIGHT * interface->scrnx);
-        draw_ascii(titlex, titley, interface->title, interface->title_textcolor, 3, interface);
+        draw_ascii(titlex, titley, interface->title, interface->title_textcolor, interface->title_textcolor, 4, interface);
         break;
     case TITLE_TYPE_IMG:
         memset(interface->framebuffer, interface->title_color, TITLE_HEIGHT * interface->scrnx);
@@ -39,7 +39,7 @@ void draw_launcher(struct interface *interface, struct launcher_content *launche
 {
     int i;
     char buf[MAX_PATH];
-    memset(interface->framebuffer + TITLE_HEIGHT * interface->scrny, launcher->background, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
+    // memset(interface->framebuffer + TITLE_HEIGHT * interface->scrny, launcher->background, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
     memset(interface->framebuffer + TITLE_HEIGHT * interface->scrnx, launcher->background, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
     for (i = 0; i < launcher->app_num; i++)
     {
@@ -47,7 +47,7 @@ void draw_launcher(struct interface *interface, struct launcher_content *launche
         {
             strcpy(buf, launcher->icon[i]);
             strcpy(buf + strlen(launcher->icon[i]) - 4, "sel.bmp");
-            draw_bitmap(buf, iconloc[i][0], iconloc[i][1], interface); 
+            draw_bitmap(buf, iconloc[i][0], iconloc[i][1], interface);
         }
         else
             draw_bitmap(launcher->icon[i], iconloc[i][0], iconloc[i][1], interface);
@@ -69,7 +69,7 @@ void add_title(char *title, uint8_t title_textcolor, uint8_t title_color, struct
     interface->title_color = title_color;
 }
 
-int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag, struct interface *interface)
+int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface)
 {
     char *font;
     int i, j, k = 0;
@@ -80,12 +80,14 @@ int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag
             for (j = 0; j < 8; j++)
                 if ((font[i] << j) & 0x80)
                     draw_fontpixel((x + j * fontmag), (y + i * fontmag), color, fontmag, interface);
+                else if (color != back)
+                    draw_fontpixel((x + j * fontmag), (y + i * fontmag), back, fontmag, interface);
         x += 8 * fontmag;
     }
     return k;
 }
 
-int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag, struct interface *interface)
+int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface)
 {
     uint16_t font;
     int i, j, k;
@@ -102,10 +104,41 @@ int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag, s
             for (j = 0; j < 16; j++)
                 if ((font << j) & 0x8000)
                     draw_fontpixel((x + j * fontmag), (y + i * fontmag), color, fontmag, interface);
+                else if (color != back)
+                    draw_fontpixel((x + j * fontmag), (y + i * fontmag), back, fontmag, interface);
         }
         x += 16 * fontmag;
     }
     return k;
+}
+
+int draw_term(uint16_t x, uint16_t y, struct term_content *term, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface)
+{
+    char *font;
+    uint16_t i, j, term_x, term_y, dis_x, dis_y;
+    char *str = term->term_buf;
+    char c;
+    dis_x = x;
+    dis_y = y;
+    for (term_y = 0; term_y < term->term_row; term_y++)
+    {
+        x = dis_x;
+        y = dis_y;
+        for (term_x = 0; term_x < term->term_col; term_x++)
+        {
+            c = *(str + term_x + term_y * term->term_col);
+            font = (char *)(ascii_8_16 + (c - 0x20) * 16);
+            for (i = 0; i < 16; i++)
+                for (j = 0; j < 8; j++)
+                    if ((font[i] << j) & 0x80)
+                        draw_fontpixel((x + j * fontmag), (y + i * fontmag), color, fontmag, interface);
+                    else if (color != back)
+                        draw_fontpixel((x + j * fontmag), (y + i * fontmag), back, fontmag, interface);
+            x += 8 * fontmag;
+        }
+        dis_y += 16 * fontmag;
+    }
+    return 0;
 }
 
 void draw_fontpixel(uint16_t x, uint16_t y, uint8_t color, uint8_t fontmag, struct interface *interface)
@@ -126,4 +159,9 @@ int init_palette(char *plt_filename, struct frame_info *frame)
     close(fd);
     sys_setpalette();
     return 0;
+}
+
+void draw_content(struct interface *interface)
+{
+    memset(interface->framebuffer + TITLE_HEIGHT * interface->scrnx, interface->content_color, (interface->scrny - TITLE_HEIGHT) * interface->scrnx);
 }

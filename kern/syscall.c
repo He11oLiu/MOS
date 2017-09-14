@@ -4,6 +4,7 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/sysinfo.h>
 
 #include <kern/env.h>
 #include <kern/pmap.h>
@@ -430,6 +431,14 @@ static int sys_setpalette()
 	return 0;
 }
 
+static int sys_getinfo(struct sysinfo *info)
+{
+	info->ncpu = ncpu;
+	info->bootcpu = bootcpu->cpu_id;
+	info->totalmem = totalmem;
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -480,6 +489,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_updatescreen();
 	case SYS_setpalette:
 		return sys_setpalette();
+	case SYS_getinfo:
+		return sys_getinfo((struct sysinfo *)a1);
 	case NSYSCALLS:
 	default:
 		return -E_INVAL;

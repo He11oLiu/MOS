@@ -6,7 +6,11 @@
 
 ## 图像显示界面
 
-![](./documents/img/graph.png)
+![](./documents/img/GUI1.png)
+
+![](./documents/img/GUI2.png)
+
+![](./documents/img/GUI3.png)
 
 
 
@@ -83,10 +87,6 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 - 用户空间工具
   - `sh`简易`shell`
 
-  ​
-
-
-
 
 ## 新特性
 
@@ -111,8 +111,11 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 - 调整目标磁盘生成工具
 - 支持从RTC读取时间
 - 支持`kmalloc/kfree`，支持分配连续空间
-
-
+- 提供`RW/RW`用户内核共享`framebuffer/palette`
+- 提供用户`GUI`接口
+- 提供`Applauncher`
+  - 日历应用
+  - 系统信息应用
 
 
 ```c

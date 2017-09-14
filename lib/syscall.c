@@ -124,3 +124,8 @@ int sys_setpalette()
 {
 	return syscall(SYS_setpalette, 0, 0, 0, 0, 0, 0);
 }
+
+int sys_getinfo(struct sysinfo *info)
+{
+	return syscall(SYS_getinfo, 0, (uint32_t)info, 0, 0, 0, 0);
+}

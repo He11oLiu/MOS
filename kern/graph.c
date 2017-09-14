@@ -77,7 +77,6 @@ void update_screen()
 void init_palette()
 {
     int i;
-    outb(0x03c8, 0);
     for (i = 0; i < 256; i++)
     {
         outb(0x03c9, (i & 0xe0) >> 2); //| 0xA);
@@ -89,6 +88,7 @@ void init_palette()
 void set_palette()
 {
     int i;
+    draw_screen(0x00);
     outb(0x03c8, 0);
     for (i = 0; i < 256; i++)
     {

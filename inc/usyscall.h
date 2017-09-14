@@ -4,6 +4,7 @@
 #include <inc/types.h>
 #include <inc/time.h>
 #include <inc/env.h>
+#include <inc/sysinfo.h>
 
 void sys_cputs(const char *string, size_t len);
 int sys_cgetc(void);
@@ -24,5 +25,6 @@ int sys_env_set_workpath(envid_t envid, const char *path);
 int sys_gettime(struct tm *tm);
 int sys_updatescreen();
 int sys_setpalette();
+int sys_getinfo(struct sysinfo *info);
 
 #endif

@@ -16,6 +16,7 @@
 #define MAX_PATH 30
 
 #define APP_LAUNCHER 0
+#define APP_NEEDBG 1
 
 #define PIXEL(interface, x, y) *(interface->framebuffer + x + (y * interface->scrnx))
 
@@ -26,9 +27,15 @@ struct launcher_content
     int app_num;
     int app_sel;
     uint8_t background;
-    // char background[MAX_PATH];
     char icon[MAX_APP][MAX_PATH];
     char app_bin[MAX_APP][MAX_PATH];
+};
+
+struct term_content
+{
+    uint8_t term_col;
+    uint8_t term_row;
+    char *term_buf; 
 };
 
 struct interface
@@ -38,6 +45,7 @@ struct interface
     uint8_t title_textcolor;
     uint8_t title_color;
     uint8_t content_type;
+    uint8_t content_color;
 
     // about the size and buff of interface
     uint16_t scrnx;
@@ -61,12 +69,15 @@ struct frame_info
 
 void draw_interface(struct interface *interface);
 void draw_title(struct interface *interface);
-int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag, struct interface *interface);
-int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t fontmag, struct interface *interface);
+// if color == back means transparent
+int draw_cn(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface);
+int draw_ascii(uint16_t x, uint16_t y, char *str, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface);
 void draw_fontpixel(uint16_t x, uint16_t y, uint8_t color, uint8_t fontmag, struct interface *interface);
 void interface_init(uint16_t scrnx, uint16_t scrny, uint8_t *framebuffer, struct interface *interface);
 void draw_launcher(struct interface *interface, struct launcher_content *launcher);
 void add_title(char *title, uint8_t title_textcolor, uint8_t title_color, struct interface *interface);
 int init_palette(char *plt_filename, struct frame_info *frame);
+void draw_content(struct interface *interface);
+int draw_term(uint16_t x, uint16_t y, struct term_content *term, uint8_t color, uint8_t back, uint8_t fontmag, struct interface *interface);
 
 #endif

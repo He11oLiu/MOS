@@ -1,15 +1,11 @@
 #include <inc/lib.h>
 
-#define KEY_UP 0xe2
-#define KEY_DOWN 0xe3
-#define KEY_LEFT 0xe4
-#define KEY_RIGHT 0xe5
-
 struct interface interface;
 struct launcher_content launcher;
 
 void input_handler();
 void change_sel(int from, int to);
+void launch_app();
 
 void umain(int argc, char **argv)
 {
@@ -19,14 +15,22 @@ void umain(int argc, char **argv)
     interface.title_color = 0x00;
 
     init_palette("/bin/palette.plt", frame);
-    draw_interface(&interface);
+    draw_title(&interface);
+
+    // init launcher
     launcher.app_num = 4;
     launcher.app_sel = 0;
     launcher.background = 0x00;
     strcpy(launcher.icon[0], "/bin/cal.bmp");
+    strcpy(launcher.app_bin[0], "/bin/calendar");
+
     strcpy(launcher.icon[1], "/bin/term.bmp");
+
     strcpy(launcher.icon[2], "/bin/setting.bmp");
+    strcpy(launcher.app_bin[2], "/bin/system");
+
     strcpy(launcher.icon[3], "/bin/drive.bmp");
+
     draw_launcher(&interface, &launcher);
     sys_updatescreen();
 
@@ -42,7 +46,7 @@ void input_handler()
     while (1)
     {
         ch = ch & 0xFF;
-        printf("%#x\n",ch);
+        // printf("%#x\n", ch);
         switch (ch)
         {
         case KEY_UP:
@@ -77,7 +81,11 @@ void input_handler()
                 sys_updatescreen();
             }
             break;
+        case KEY_ENTER:
+            launch_app();
+            break;
         }
+        // case
         ch = getchar();
     }
 }
@@ -89,4 +97,32 @@ void change_sel(int from, int to)
     strcpy(buf + strlen(launcher.icon[to]) - 4, "sel.bmp");
     draw_bitmap(buf, iconloc[to][0], iconloc[to][1], &interface);
     draw_bitmap(launcher.icon[from], iconloc[from][0], iconloc[from][1], &interface);
+}
+
+void refresh_interface()
+{
+    draw_interface(&interface);
+    draw_launcher(&interface, &launcher);
+    sys_updatescreen();
+}
+
+void launch_app()
+{
+    char *app_bin = launcher.app_bin[launcher.app_sel];
+    int r;
+    char *argv[2];
+    argv[0] = app_bin;
+    argv[1] = 0;
+    // Spawn the command!
+    printf("[launcher] Launching %s\n",app_bin);
+    if ((r = spawn(app_bin, (const char **)argv)) < 0)
+    {
+        printf("App %s not found!\n",app_bin);
+        return;
+    }
+    // close_all();
+    wait(r);
+    printf("[launcher] %s normally exit\n",app_bin);
+    init_palette("/bin/palette.plt", frame);
+    refresh_interface();
 }
