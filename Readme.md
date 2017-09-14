@@ -6,6 +6,8 @@
 
 ## 图像显示界面
 
+在启动后`msh`中输入`$ applauncher`启动图形化界面应用启动器
+
 ![](./documents/img/GUI1.png)
 
 ![](./documents/img/GUI2.png)
@@ -91,15 +93,23 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 ## 新特性
 
 - 支持原子操作
+
 - 支持读写锁
+
 - 支持针对单一核心`IPI`
+
 - 支持`PRWLock`
+
 - 支持基本图形显示
+
 - 支持中英文显示（中英文点阵字库）
+
 - 支持进程工作目录 提供`getcwd`与`chdir`
+
 - 新的`syscall`
 
   - `SYS_env_set_workpath` 修改工作路径
+
 - 新的用户程序
 
   - `ls` 功能完善
@@ -108,55 +118,29 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
   - `touch` 由于文件属性没啥可改的，用于创建文件
   - `mkdir` 创建目录文件
   - `msh` 更高级的`shell` 还未完全完工 支持`cd` 支持默认二进制路径为 `bin`
+
 - 调整目标磁盘生成工具
+
 - 支持从RTC读取时间
+
 - 支持`kmalloc/kfree`，支持分配连续空间
+
 - 提供`RW/RW`用户内核共享`framebuffer/palette`
+
 - 提供用户`GUI`接口
+
+- 提供调色板预设
+
 - 提供`Applauncher`
   - 日历应用
+
   - 系统信息应用
 
+    ​
 
-```c
-# msh in / [12:14:28]
-$ cd documents
-
-# msh in /documents/ [12:14:35]
-$ echo hello liu > hello
-
-# msh in /documents/ [12:14:45]
-$ cat hello
-hello liu
-
-# msh in /documents/ [12:14:49]
-$ cd /bin
-
-# msh in /bin/ [12:14:54]
-$ ls -l -F
--          37 newmotd
--          92 motd
--         447 lorem
--         132 script
--        2916 testshell.key
--         113 testshell.sh
--       20308 cat
--       20076 echo
--       20508 ls
--       20332 lsfd
--       25060 sh
--       20076 hello
--       20276 pwd
--       20276 mkdir
--       20280 touch
--       29208 msh
-
-# msh in /bin/ [12:14:57]
-$ 
-```
 
 ## 计划完成的特性
 
-- MSH 功能更全的`shell`
+- `Terminal` 一个模拟CGA显示模式的终端程序
 
 - `lab challenge`

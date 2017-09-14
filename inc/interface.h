@@ -76,7 +76,6 @@ void draw_launcher(struct interface *interface, struct launcher_content *launche
 void add_title(char *title, uint8_t title_textcolor, uint8_t title_color, struct interface *interface);
 int init_palette(char *plt_filename, struct frame_info *frame);
 void draw_content(struct interface *interface);
-
 int draw_screen(uint16_t x, uint16_t y, struct screen *screen, uint8_t color, uint8_t back, uint8_t fontmag);
 void set_screen_interface(struct interface *screen);
 
