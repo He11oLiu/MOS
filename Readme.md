@@ -116,7 +116,6 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 
 
 
-
 ## 新特性
 
 - 支持原子操作
@@ -150,4 +149,4 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 
 ## 计划完成的特性
 
-- `lab challenge`
+- `mmap`
