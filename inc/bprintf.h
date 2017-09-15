@@ -8,8 +8,8 @@
 #include <inc/string.h>
 
 
-#define SCREEN_ROW 25
-#define SCREEN_COL 80
+#define SCREEN_ROW 35
+#define SCREEN_COL 103
 #define SCREEN_SIZE (SCREEN_ROW * SCREEN_COL)
 
 struct screen

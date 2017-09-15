@@ -14,7 +14,7 @@ void umain(int argc, char **argv)
     strcpy(interface.title, "/bin/title.bmp");
     interface.title_color = 0x00;
 
-    init_palette("/bin/palette.plt", frame);
+    init_palette("/bin/launcher.plt", frame);
     draw_title(&interface);
 
     // init launcher
@@ -25,6 +25,7 @@ void umain(int argc, char **argv)
     strcpy(launcher.app_bin[0], "/bin/calendar");
 
     strcpy(launcher.icon[1], "/bin/term.bmp");
+    strcpy(launcher.app_bin[1], "/bin/term");
 
     strcpy(launcher.icon[2], "/bin/setting.bmp");
     strcpy(launcher.app_bin[2], "/bin/system");

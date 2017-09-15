@@ -4,6 +4,7 @@ void
 umain(int argc, char **argv)
 {
 	struct tm time;
+    struct sysinfo info;
 	sys_gettime(&time);
     printf("____________________________________________\n");
     printf("/\\                                           \\\n");
@@ -14,5 +15,8 @@ umain(int argc, char **argv)
     printf("   \\_/_________________________________________/\n");
     printf("\n");
     printf("System time : [%t]\n",&time);
-
+    sys_getinfo(&info);
+    printf("CPU number  : %d CPUs online\n", info.ncpu);
+    printf("Boot CPU    : %d CPU is boot CPU\n", info.bootcpu);
+    printf("Memory size : Physical memory %uK\n", info.totalmem);
 }

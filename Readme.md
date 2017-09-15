@@ -12,6 +12,8 @@
 
 ![](./documents/img/GUI2.png)
 
+![](./documents/img/GUI4.png)
+
 ![](./documents/img/GUI3.png)
 
 
@@ -93,54 +95,32 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 ## 新特性
 
 - 支持原子操作
-
 - 支持读写锁
-
 - 支持针对单一核心`IPI`
-
 - 支持`PRWLock`
-
 - 支持基本图形显示
-
 - 支持中英文显示（中英文点阵字库）
-
 - 支持进程工作目录 提供`getcwd`与`chdir`
-
 - 新的`syscall`
-
   - `SYS_env_set_workpath` 修改工作路径
-
 - 新的用户程序
-
   - `ls` 功能完善
   - `pwd` 输出当前工作目录
   - `cat` 接入工作目录
   - `touch` 由于文件属性没啥可改的，用于创建文件
   - `mkdir` 创建目录文件
   - `msh` 更高级的`shell` 还未完全完工 支持`cd` 支持默认二进制路径为 `bin`
-
 - 调整目标磁盘生成工具
-
 - 支持从RTC读取时间
-
 - 支持`kmalloc/kfree`，支持分配连续空间
-
 - 提供`RW/RW`用户内核共享`framebuffer/palette`
-
 - 提供用户`GUI`接口
-
 - 提供调色板预设
-
 - 提供`Applauncher`
   - 日历应用
-
   - 系统信息应用
-
-    ​
-
 
 ## 计划完成的特性
 
 - `Terminal` 一个模拟CGA显示模式的终端程序
-
 - `lab challenge`

@@ -67,7 +67,9 @@ void bputchar(char c)
     {
         int i;
         // Move all the screen upward (a line)
-        memmove(screen.screen_buf, screen.screen_buf + SCREEN_COL, (SCREEN_SIZE - SCREEN_COL) * sizeof(uint16_t));
+        cprintf("before memmove!");
+        memmove(screen.screen_buf, screen.screen_buf + SCREEN_COL, (SCREEN_SIZE - SCREEN_COL) * sizeof(uint8_t));
+        cprintf("after memmove!");
         // Clear the bottom line
         for (i = SCREEN_SIZE - SCREEN_COL; i < SCREEN_SIZE; i++)
             screen.screen_buf[i] = ' ';
@@ -75,5 +77,5 @@ void bputchar(char c)
     }
     screen.screen_col = SCREEN_COL;
     screen.screen_row = SCREEN_ROW;
-    draw_screen(100, 160, &screen, 0x00, 0xff, 1);
+    draw_screen(100, 80, &screen, 0x00, 0xff, 1);
 }
