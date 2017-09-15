@@ -8,7 +8,7 @@ umain(int argc, char **argv)
 	sys_gettime(&time);
     printf("____________________________________________\n");
     printf("/\\                                           \\\n");
-    printf("\\_| He11o_Liu's MOS version 0.1             |\n");
+    printf("\\_| He11o_Liu's MOS version 0.1              |\n");
     printf("  | A HOEEMADE MicroOS based on MIT6.828 JOS |\n");
     printf("  | Github: https://github.com/He11oLiu/MOS  |\n");
     printf("  | Blog  : http://blog.csdn.net/he11o_liu   |\n");

@@ -7,7 +7,6 @@
 #include <inc/usyscall.h>
 #include <inc/string.h>
 
-
 #define SCREEN_ROW 35
 #define SCREEN_COL 103
 #define SCREEN_SIZE (SCREEN_ROW * SCREEN_COL)
@@ -16,6 +15,7 @@ struct screen
 {
     uint8_t screen_col;
     uint8_t screen_row;
+    uint16_t screen_pos;
     char screen_buf[SCREEN_SIZE];
 };
 

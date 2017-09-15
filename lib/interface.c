@@ -134,6 +134,8 @@ int draw_screen(uint16_t x, uint16_t y, struct screen *screen, uint8_t color, ui
         for (screen_x = 0; screen_x < screen->screen_col; screen_x++)
         {
             c = *(str + screen_x + screen_y * screen->screen_col);
+            if(screen->screen_pos == screen_x + screen_y * screen->screen_col)
+                c = '_';
             font = (char *)(ascii_8_16 + (c - 0x20) * 16);
             for (i = 0; i < 16; i++)
                 for (j = 0; j < 8; j++)

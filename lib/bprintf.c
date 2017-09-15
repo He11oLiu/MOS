@@ -1,8 +1,6 @@
 #include <inc/bprintf.h>
 #include <inc/interface.h>
 
-uint16_t screen_pos = 0;
-
 struct screen screen;
 
 
@@ -36,18 +34,18 @@ void bputchar(char c)
     switch (c)
     {
     case '\b': /* backspace */
-        if (screen_pos > 0)
+        if (screen.screen_pos > 0)
         {
-            screen_pos--;
+            screen.screen_pos--;
             // delete the character
-            screen.screen_buf[screen_pos] = ' ';
+            screen.screen_buf[screen.screen_pos] = ' ';
         }
         break;
     case '\n': /* new line */
-        screen_pos += SCREEN_COL;
+        screen.screen_pos += SCREEN_COL;
     /* fallthru */
     case '\r': /* return to the first character of cur line */
-        screen_pos -= (screen_pos % SCREEN_COL);
+        screen.screen_pos -= (screen.screen_pos % SCREEN_COL);
         break;
     case '\t':
         bputchar(' ');
@@ -56,24 +54,22 @@ void bputchar(char c)
         bputchar(' ');
         break;
     default:
-        screen.screen_buf[screen_pos++] = c; /* write the character */
+        screen.screen_buf[screen.screen_pos++] = c; /* write the character */
         break;
     }
 
     // When current pos reach the bottom of the creen
-    // case '\n' : screen_pos -= SCREEN_COL will work
-    // case other: screen_pos must equal to SCREEN_SIZE
-    if (screen_pos >= SCREEN_SIZE)
+    // case '\n' : screen.screen_pos -= SCREEN_COL will work
+    // case other: screen.screen_pos must equal to SCREEN_SIZE
+    if (screen.screen_pos >= SCREEN_SIZE)
     {
         int i;
         // Move all the screen upward (a line)
-        cprintf("before memmove!");
         memmove(screen.screen_buf, screen.screen_buf + SCREEN_COL, (SCREEN_SIZE - SCREEN_COL) * sizeof(uint8_t));
-        cprintf("after memmove!");
         // Clear the bottom line
         for (i = SCREEN_SIZE - SCREEN_COL; i < SCREEN_SIZE; i++)
             screen.screen_buf[i] = ' ';
-        screen_pos -= SCREEN_COL;
+        screen.screen_pos -= SCREEN_COL;
     }
     screen.screen_col = SCREEN_COL;
     screen.screen_row = SCREEN_ROW;

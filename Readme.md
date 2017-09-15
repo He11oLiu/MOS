@@ -144,7 +144,7 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 - 提供`Applauncher`
   - 日历应用
   - 系统信息应用
-  - 模拟CGA显示模式的终端程序
+  - 模拟`CGA`显示模式的终端程序（基于`pipe`)
 
   ​
 

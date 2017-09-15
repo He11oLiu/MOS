@@ -601,9 +601,211 @@ void launch_app()
 
 这个程序的代码已经放在上面了，主要是设计了一个新的`syscall`，用于从内核中返回一些基本系统信息。
 
-### 终端[Working on it]
 
-已经实现了一个`CGA`模拟器，并提供单独的`fd device`
+
+## Part4 模拟CGA显示模式终端应用
+
+![](./img/GUI4.png)
+
+终端程序与普通程序的设计思路完全不同，本部分将根据我的思考来一步步阐述如何实现终端`APP`。
+
+### 思路
+
+作为一个终端程序，
+
+- 终端模拟器应该支持一种`printf`能显示到屏幕的功能。
+
+  - `printf`是向文件描述符`1`进行输出。
+
+  - 查看之前写的`console`代码，`openconsole`的操作就是分配一个文件描述符，设置文件操作为(键盘输入，串口输出)的策略。
+
+  - 所以我们这个终端模拟器应该提供一种新的`device`，这种`device`提供了(键盘输入，屏幕输出)的功能。
+
+    ```c
+    struct Dev devscreen =
+        {
+            .dev_id = 's',
+            .dev_name = "screen",
+            .dev_read = devscreen_read,
+            .dev_write = devscreen_write,
+            .dev_close = devscreen_close,
+            .dev_stat = devscreen_stat};
+    ```
+
+  - 直接在屏幕上显示出来并不是一个很好的选择，参考`CGA`的显示，设计了一个屏幕字符缓冲区。
+
+    ```c
+    struct screen
+    {
+        uint8_t screen_col;
+        uint8_t screen_row;
+        uint16_t screen_pos;
+        char screen_buf[SCREEN_SIZE];
+    };
+    ```
+
+  - 提供新的`bprintf`方法，方便`screen device`调用。
+
+- 作为终端模拟器，其需要集成`fork`出来的各种进程的输出。
+
+  - 首先对于其他的程序，其输出也是`printf`
+  - 其他的程序会继承其父进程的文件描述符表。
+  - 父进程中的文件描述符`1`号，则应该指向上面定义的`screen` （这条思路最后没走通）
+
+### 思路中的`part1`
+
+这个部分的实现还是比较顺利的。上面已经定义了新的`device`。
+
+- 这个新的`device`的`read`策略，还是从键盘读，无须进行修改。
+- 而这个`device`的写策略，则需要写入到屏幕了。这里新写了一个`bprintf`的函数与其配套方法。(`bprintf` a.k.a `printf to buf`）
+
+`bprintf`的基本实现与之前在`CGA`模式的输出类似，所以才叫仿`CGA`模式。主要是`bputchar`的实现：
+
+```c
+
+void bputchar(char c)
+{
+    switch (c)
+    {
+    case '\b': /* backspace */
+        if (screen.screen_pos > 0)
+        {
+            screen.screen_pos--;
+            // delete the character
+            screen.screen_buf[screen.screen_pos] = ' ';
+        }
+        break;
+    case '\n': /* new line */
+        screen.screen_pos += SCREEN_COL;
+    /* fallthru */
+    case '\r': /* return to the first character of cur line */
+        screen.screen_pos -= (screen.screen_pos % SCREEN_COL);
+        break;
+    case '\t':
+        bputchar(' ');
+        bputchar(' ');
+        bputchar(' ');
+        bputchar(' ');
+        break;
+    default:
+        screen.screen_buf[screen.screen_pos++] = c; /* write the character */
+        break;
+    }
+    // When current pos reach the bottom of the creen
+    // case '\n' : screen.screen_pos -= SCREEN_COL will work
+    // case other: screen.screen_pos must equal to SCREEN_SIZE
+    if (screen.screen_pos >= SCREEN_SIZE)
+    {
+        int i;
+        // Move all the screen upward (a line)
+        memmove(screen.screen_buf, screen.screen_buf + SCREEN_COL, (SCREEN_SIZE - SCREEN_COL) * sizeof(uint8_t));
+        // Clear the bottom line
+        for (i = SCREEN_SIZE - SCREEN_COL; i < SCREEN_SIZE; i++)
+            screen.screen_buf[i] = ' ';
+        screen.screen_pos -= SCREEN_COL;
+    }
+    screen.screen_col = SCREEN_COL;
+    screen.screen_row = SCREEN_ROW;
+    draw_screen(100, 80, &screen, 0x00, 0xff, 1);
+}
+```
+
+`bputchar`实现了对特殊描述符，换行，翻页的情况的处理，并将打印的内容放入屏幕字符缓冲区。
+
+最后要实现的就是把屏幕缓冲区的内容放倒屏幕上。这个实现起来就比较简单了，遍历字符串，然后一个个字从字库中获取显示信息显示出来即可。
+
+
+
+### 思路中的`part2`
+
+`part2`才是设计终端中需要动脑子的地方。正如思路中所说，我一开始的想法是：
+
+### 老思路
+
+*父进程中的文件描述符`1`号，则应该指向上面定义的`screen`*
+
+然而没有考虑这个问题：
+
+**`interface`与`screen`参数均属于与之平等的另一个用户程序！**在调用`bprintf`的时候，没有初始化`screen`，也不知道`interface`在哪里。
+
+**之所以`CGA`模式可以使用这个思路是因为`CGA`的文字缓冲区是在内核中，可以看为这项服务是内核提供的，是一个上下级的关系，而不是平行的**
+
+如果必须要走这条路，有以下解决方法：
+
+- 在库中判断没有参数时，直接初始化`screen`与`interface`，可以做到直接新建一个输出页的效果。
+- 提升终端到内核中运行（无法忍受）
+- 使终端成为如同文件系统的非普通程序，接收输出请求。这个也很复杂，不够优雅！！！
+
+
+
+### 新思路 ： 利用 `Pipe`!!!!!!!!
+
+老思路中的第一条解决方法走通了后又思考了一会儿，实在不想走第二第三条路。
+
+换个思路一想，原来这个事可以这么简单。申请一个`pipe`，读取端给 （输出到屏幕的 ）服务进程作为输入来源，输出端给用户程序作为输出。程序输出的内容会通过`pipe`发送给服务进程，最终服务进程显示到屏幕上即可。
+
+整个程序的流程如下：
+
+- 终端程序打开屏幕输出设备，给文件描述符`1`（默认输出）
+- 终端程序申请`pipe`
+- 终端程序`fork`子进程
+  - 子进程关闭读的`pipe`，保留写的`pipe`，并将写的`pipe`给默认输出`1`，后面的程序输出都会写进`pipe`中。子进程开始运行`shell`。
+  - 父进程关闭写的`pipe`，保留读的`pipe`，并将读的`pipe`给默认输入`0`，后面程序的输入都会读`pipe`中的内容。父进程进入循环，服务所有的输入输出到屏幕的功能。
+
+来看核心代码：
+
+```c
+
+void umain(int argc, char **argv)
+{
+	...
+    close(1);
+    // 打开屏幕CGA输出到文件描述符1
+    if ((r = openscreen(&interface)) < 0)
+        panic("fd = %e\n", r);
+    cprintf("fd = %d\n", r);
+    // 申请一个pipe
+    if ((r = pipe(p)) < 0)
+    {
+        cprintf("pipe: %e", r);
+        exit();
+    }
+    readfd = p[0];
+    writefd = p[1];
+    r = fork();
+    if (r == 0)
+    {
+        close(readfd);
+        close(1);
+      	// 写入端给子进程作为其输出默认文件描述符1
+        dup(writefd, 1);
+      	// 运行shell (修改过，没有文件描述符操作版本)
+        msh(argc, argv);
+        printf("msh exit\n");
+        exit();
+    }
+    else
+    {
+        close(writefd);
+        close(0);
+      	// 读入端作为其默认读取文件描述符0
+        if (readfd != 0)
+            dup(readfd, 0);
+        close(readfd);
+    }
+
+    e = &envs[ENVX(r)];
+    while(1)
+    {
+      	// 获取所有的pipe中的数据并显示在模拟CGA屏幕上
+        r = getchar();
+        printf("%c", r);
+        // 当shell退出的时候退出
+        if(e->env_status == ENV_FREE)
+            break;
+    }
+}
+```
 
 
 
