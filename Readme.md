@@ -1,4 +1,8 @@
-# He11o_Liu 's JOS
+# Micro homemade OS
+
+`MOS`是一个基于`MIT 6.828 JOS`的自制操作系统。在完成`JOS`实验的基础上添加了很多新特性，并提供了基础的图形界面与应用程序接口。关于此操作系统的详细设计与实现文档见`./documents`。
+
+
 
 ## CGA 显示界面
 
@@ -7,6 +11,27 @@
 ## 图像显示界面
 
 在启动后`msh`中输入`$ applauncher`启动图形化界面应用启动器
+
+```shell
+====Graph mode on====
+   scrnx  = 1024
+   scrny  = 768
+MMIO VRAM = 0xef800000
+=====================
+SMP: CPU 0 found 1 CPU(s)
+enabled interrupts: 1 2 4
+FS is running
+FS can do I/O
+Device 1 presence: 1
+block cache is good
+superblock is good
+bitmap is good
+
+# msh in / [10:02:07]
+$ applauncher
+```
+
+
 
 ![](./documents/img/GUI1.png)
 
@@ -17,10 +42,6 @@
 ![](./documents/img/GUI3.png)
 
 
-
-## 关于
-
-本项目在完成 [`MIT6.828`](https://pdos.csail.mit.edu/6.828/2016/) `JOS` 实验的基础上实现一些有趣的东西。详细文档见`./documents`
 
 ## 环境
 
@@ -44,7 +65,9 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 
 具体配置方法见`./documents/[finish] macOS编译运行配置.md`
 
-## 完成列表
+
+
+## MIT6.828 JOS lab 完成列表
 
 - [x] lab1 Booting a PC
 - [x] lab1 challenge: VGA GUI
@@ -92,6 +115,8 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
   - `sh`简易`shell`
 
 
+
+
 ## 新特性
 
 - 支持原子操作
@@ -119,8 +144,10 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 - 提供`Applauncher`
   - 日历应用
   - 系统信息应用
+  - 模拟CGA显示模式的终端程序
+
+  ​
 
 ## 计划完成的特性
 
-- `Terminal` 一个模拟CGA显示模式的终端程序
 - `lab challenge`

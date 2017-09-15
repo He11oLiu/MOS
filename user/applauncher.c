@@ -1,5 +1,6 @@
 #include <inc/lib.h>
 
+#define LAUNCHER_PALETTE "/bin/launcher.plt"
 struct interface interface;
 struct launcher_content launcher;
 
@@ -14,7 +15,7 @@ void umain(int argc, char **argv)
     strcpy(interface.title, "/bin/title.bmp");
     interface.title_color = 0x00;
 
-    init_palette("/bin/launcher.plt", frame);
+    init_palette(LAUNCHER_PALETTE, frame);
     draw_title(&interface);
 
     // init launcher
@@ -122,6 +123,6 @@ void launch_app()
     }
     wait(r);
     printf("[launcher] %s normally exit\n",app_bin);
-    init_palette("/bin/palette.plt", frame);
+    init_palette(LAUNCHER_PALETTE, frame);
     refresh_interface();
 }

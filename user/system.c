@@ -51,7 +51,7 @@ void display_info()
     char buf[30];
     struct sysinfo info;
     sys_getinfo(&info);
-    draw_ascii(display_x, display_y, "Sys    : He11o_Liu's JOS version 0.1", 0xff, 0x00, fontmeg, &interface);
+    draw_ascii(display_x, display_y, "Sys    : He11o_Liu's MOS version 0.1", 0xff, 0x00, fontmeg, &interface);
 
     display_y += font_height;
     draw_ascii(display_x, display_y, "Github : https://github.com/He11oLiu/JOS", 0xff, 0x00, fontmeg, &interface);
