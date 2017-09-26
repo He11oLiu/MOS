@@ -41,9 +41,11 @@ $ applauncher
 
 ![](./documents/img/GUI3.png)
 
+## 运行环境
 
+运行需要安装`QEMU`，请到`image`文件夹下查看。
 
-## 环境
+## 编译环境
 
 需要配置`/conf/env.mk`下的`qemu`所在路径
 
@@ -56,9 +58,6 @@ COLLECT_LTO_WRAPPER=/opt/local/libexec/gcc/i386-elf/4.7.2/lto-wrapper
 配置为：/opt/local/var/macports/build/_opt_local_var_macports_sources_rsync.macports.org_macports_release_tarballs_ports_cross_i386-elf-gcc/i386-elf-gcc/work/gcc-4.7.2/configure --prefix=/opt/local --target=i386-elf --infodir=/opt/local/share/info --mandir=/opt/local/share/man --datarootdir=/opt/local/share/i386-elf-gcc --with-system-zlib --with-gmp=/opt/local --with-mpfr=/opt/local --with-mpc=/opt/local --enable-stage1-checking --enable-multilib --with-newlib --enable-languages=c,c++
 线程模型：single
 gcc 版本 4.7.2 (GCC)
-$ /usr/local/Cellar/qemu/2.10.0/bin/qemu-system-i386 -version
-QEMU emulator version 2.10.0
-Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 ```
 
 `MIT`课程中使用`linux`的环境，这里配置了`macOS`下的开发环境。
